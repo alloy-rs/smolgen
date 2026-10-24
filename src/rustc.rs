@@ -85,6 +85,7 @@ use std::{collections::BTreeMap, env, ffi::OsString, process::Command};
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Rustc {
+    /// Whether the `all` constructor created this value.
     all: bool,
     #[cfg(test)]
     str_to_test: Option<&'static str>,
@@ -98,10 +99,6 @@ pub struct Rustc {
 
 builder! {
     RustcBuilder => Rustc {
-        /// Configures the default values.
-        /// If set to `true` all defaults are in "enabled" state.
-        /// If set to `false` all defaults are in "disabled" state.
-        all: bool,
         /// Enable the rustc channel
         channel: bool,
         /// Enable the rustc commit date

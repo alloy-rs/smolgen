@@ -229,12 +229,26 @@ mod sys {
         target_os = "netbsd",
         target_os = "openbsd",
         all(target_os = "freebsd", not(target_arch = "x86")),
+        all(
+            target_os = "linux",
+            any(
+                all(target_arch = "x86_64", target_pointer_width = "32"),
+                target_arch = "riscv32"
+            )
+        ),
     ))]
     type TimeT = i64;
     #[cfg(not(any(
         target_os = "netbsd",
         target_os = "openbsd",
         all(target_os = "freebsd", not(target_arch = "x86")),
+        all(
+            target_os = "linux",
+            any(
+                all(target_arch = "x86_64", target_pointer_width = "32"),
+                target_arch = "riscv32"
+            )
+        ),
     )))]
     type TimeT = c_long;
 

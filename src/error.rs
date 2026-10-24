@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, fmt};
+use std::{error::Error as StdError, fmt, ops::Deref};
 
 /// The error type used by `smolgen`.
 ///
@@ -41,6 +41,14 @@ impl From<Error> for Box<dyn StdError + Send> {
 impl From<Error> for Box<dyn StdError> {
     fn from(error: Error) -> Self {
         error.0
+    }
+}
+
+impl Deref for Error {
+    type Target = dyn StdError + Send + Sync;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
     }
 }
 

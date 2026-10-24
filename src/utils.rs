@@ -154,7 +154,7 @@ mod json {
     /// Parses a complete JSON document.
     pub(crate) fn parse(input: &str) -> Option<Value> {
         let mut chars = input.chars().peekable();
-        let value = parse_value(&mut chars)?;
+        let value = parse_value(&mut chars, 0)?;
         skip_ws(&mut chars);
         chars.next().is_none().then_some(value)
     }
@@ -171,7 +171,11 @@ mod json {
         chars.next_if_eq(&expected).map(drop)
     }
 
-    fn parse_value(chars: &mut Peekable<Chars<'_>>) -> Option<Value> {
+    fn parse_value(chars: &mut Peekable<Chars<'_>>, depth: u32) -> Option<Value> {
+        // Same nesting limit as serde_json.
+        if depth > 128 {
+            return None;
+        }
         skip_ws(chars);
         match *chars.peek()? {
             '{' => {
@@ -184,7 +188,7 @@ mod json {
                     skip_ws(chars);
                     let key = parse_string(chars)?;
                     eat(chars, ':')?;
-                    entries.push((key, parse_value(chars)?));
+                    entries.push((key, parse_value(chars, depth + 1)?));
                     if eat(chars, ',').is_none() {
                         eat(chars, '}')?;
                         return Some(Value::Object(entries));
@@ -197,7 +201,7 @@ mod json {
                     return Some(Value::Array);
                 }
                 loop {
-                    let _ = parse_value(chars)?;
+                    let _ = parse_value(chars, depth + 1)?;
                     if eat(chars, ',').is_none() {
                         eat(chars, ']')?;
                         return Some(Value::Array);
@@ -264,6 +268,10 @@ mod json {
                         let hex = |chars: &mut Peekable<Chars<'_>>| -> Option<u32> {
                             let digits: String =
                                 (0..4).map(|_| chars.next()).collect::<Option<_>>()?;
+                            digits
+                                .bytes()
+                                .all(|b| b.is_ascii_hexdigit())
+                                .then_some(())?;
                             u32::from_str_radix(&digits, 16).ok()
                         };
                         let high = hex(chars)?;
@@ -272,7 +280,10 @@ mod json {
                                 return None;
                             }
                             let low = hex(chars)?;
-                            0x10000 + ((high - 0xD800) << 10) + low.checked_sub(0xDC00)?
+                            if !(0xDC00..0xE000).contains(&low) {
+                                return None;
+                            }
+                            0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
                         } else {
                             high
                         };

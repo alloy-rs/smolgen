@@ -143,6 +143,7 @@ use std::{
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools, clippy::struct_field_names)]
 pub struct Build {
+    /// Whether the `all` constructor created this value.
     all: bool,
     build_date: bool,
     build_timestamp: bool,
@@ -152,10 +153,6 @@ pub struct Build {
 
 builder! {
     BuildBuilder => Build {
-        /// Configures the default values.
-        /// If set to `true` all defaults are in "enabled" state.
-        /// If set to `false` all defaults are in "disabled" state.
-        all: bool,
         /// Enable the `VERGEN_BUILD_DATE` date output
         build_date: bool,
         /// Enable the `VERGEN_BUILD_TIMESTAMP` date output

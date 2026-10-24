@@ -154,6 +154,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Sysinfo {
+    /// Whether the `all` constructor created this value.
     all: bool,
     #[cfg(test)]
     fail_pid: bool,
@@ -171,10 +172,6 @@ pub struct Sysinfo {
 
 builder! {
     SysinfoBuilder => Sysinfo {
-        /// Configures the default values.
-        /// If set to `true` all defaults are in "enabled" state.
-        /// If set to `false` all defaults are in "disabled" state.
-        all: bool,
         #[cfg(test)]
         fail_pid: bool,
         /// Enable the sysinfo name

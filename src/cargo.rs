@@ -109,6 +109,7 @@ use std::env;
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cargo {
+    /// Whether the `all` constructor created this value.
     all: bool,
     debug: bool,
     features: bool,
@@ -124,10 +125,6 @@ pub struct Cargo {
 
 builder! {
     CargoBuilder => Cargo {
-        /// Configures the default values.
-        /// If set to `true` all defaults are in "enabled" state.
-        /// If set to `false` all defaults are in "disabled" state.
-        all: bool,
         /// Emit the DEBUG value set by cargo
         ///
         /// ```text

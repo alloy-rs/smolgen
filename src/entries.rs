@@ -60,7 +60,7 @@ pub trait Add {
     /// # Errors
     ///
     /// If an error occurs, the `vergen` emitter will use `add_default_entries` to generate output.
-    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`crate::Result`] is returned.
     ///
     fn add_map_entries(
         &self,
@@ -78,7 +78,7 @@ pub trait Add {
     ///
     /// # Errors
     ///
-    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`crate::Result`] is returned.
     ///
     fn add_default_entries(
         &self,
@@ -150,7 +150,7 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
     /// # Errors
     ///
     /// If an error occurs, the `vergen` emitter will use `add_default_entries` to generate output.
-    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`crate::Result`] is returned.
     ///
     fn add_calculated_entries(
         &self,
@@ -168,7 +168,7 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
     ///
     /// # Errors
     ///
-    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`crate::Result`] is returned.
     ///
     fn add_default_entries(
         &self,
