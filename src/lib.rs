@@ -371,11 +371,11 @@ pub use self::build::{Build, BuildBuilder};
 #[cfg(feature = "cargo")]
 pub use self::cargo::{Cargo, CargoBuilder};
 #[cfg(feature = "git2")]
-pub use self::git2::Git2;
+pub use self::git2::{Git2, Git2Builder};
 #[cfg(feature = "gitcl")]
-pub use self::gitcl::Gitcl;
+pub use self::gitcl::{Gitcl, GitclBuilder};
 #[cfg(feature = "gix")]
-pub use self::gix::Gix;
+pub use self::gix::{Gix, GixBuilder};
 #[cfg(feature = "rustc")]
 pub use self::rustc::{Rustc, RustcBuilder};
 #[cfg(feature = "si")]

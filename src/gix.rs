@@ -6,7 +6,6 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use self::gix_builder::Empty;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, Describe,
     Dirty, Sha, VergenKey, add_default_map_entry, add_map_entry,
@@ -17,7 +16,6 @@ use crate::{
     },
 };
 use crate::{Error, Result};
-use bon::Builder;
 use gix::{
     Commit, Head, Id, Repository,
     commit::describe::SelectRef,
@@ -85,104 +83,168 @@ use {
 /// # }
 /// ```
 ///
-#[derive(Builder, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Gix {
     /// Configures the default values.
     /// If set to `true` all defaults are in "enabled" state.
     /// If set to `false` all defaults are in "disabled" state.
-    #[builder(field)]
     all: bool,
-    /// An optional path to a local repository.
-    #[builder(into)]
     local_repo_path: Option<PathBuf>,
-    /// Force the use of a local repository, ignoring any remote configuration
-    #[builder(default = false)]
     force_local: bool,
-    /// Force the use of a remote repository (testing only)
     #[cfg(test)]
-    #[builder(default = false)]
     force_remote: bool,
-    /// An optional remote URL to use in lieu of a local repository
-    #[builder(into)]
     remote_url: Option<String>,
+    remote_repo_path: Option<PathBuf>,
+    remote_tag: Option<String>,
+    #[cfg(feature = "vcs_info")]
+    vcs_info_fallback: bool,
+    branch: bool,
+    commit_author_name: bool,
+    commit_author_email: bool,
+    commit_count: bool,
+    commit_message: bool,
+    commit_date: bool,
+    commit_timestamp: bool,
+    commit_timestamp_unix: bool,
+    describe: Option<Describe>,
+    sha: Option<Sha>,
+    dirty: Option<Dirty>,
+    use_local: bool,
+}
+
+builder! {
+    GixBuilder => Gix {
+        /// Force the use of a local repository, ignoring any remote configuration
+        force_local: bool,
+        /// Force the use of a remote repository (testing only)
+        #[cfg(test)]
+        force_remote: bool,
+        /// Fall back to `.cargo_vcs_info.json` for the git SHA and dirty flag when no
+        /// repository is available (e.g. building from a published crate or via
+        /// `cargo install`).  Requires the `vcs_info` feature.
+        #[cfg(feature = "vcs_info")]
+        vcs_info_fallback: bool,
+        /// Emit the current git branch
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_BRANCH=<BRANCH_NAME>
+        /// ```
+        ///
+        branch: bool,
+        /// Emit the author email of the most recent commit
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_AUTHOR_EMAIL=<AUTHOR_EMAIL>
+        /// ```
+        ///
+        commit_author_name: bool,
+        /// Emit the author name of the most recent commit
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_AUTHOR_NAME=<AUTHOR_NAME>
+        /// ```
+        ///
+        commit_author_email: bool,
+        /// Emit the total commit count to HEAD
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_COUNT=<COUNT>
+        /// ```
+        commit_count: bool,
+        /// Emit the commit message of the latest commit
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_MESSAGE=<MESSAGE>
+        /// ```
+        ///
+        commit_message: bool,
+        /// Emit the commit date of the latest commit
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_DATE=<YYYY-MM-DD>
+        /// ```
+        ///
+        commit_date: bool,
+        /// Emit the commit timestamp of the latest commit
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_TIMESTAMP=<YYYY-MM-DDThh:mm:ssZ>
+        /// ```
+        ///
+        commit_timestamp: bool,
+        /// Emit the commit timestamp of the latest commit as Unix seconds
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_GIT_COMMIT_TIMESTAMP_UNIX=<SECONDS>
+        /// ```
+        ///
+        /// This is opt-in and is not enabled by [`Gix::all_git`].
+        commit_timestamp_unix: bool,
+        /// Enable local offset date/timestamp output
+        use_local: bool,
+    }
+}
+
+impl GixBuilder {
+    /// An optional path to a local repository.
+    #[must_use]
+    pub fn local_repo_path(mut self, local_repo_path: impl Into<PathBuf>) -> Self {
+        self.0.local_repo_path = Some(local_repo_path.into());
+        self
+    }
+
+    /// An optional path to a local repository.
+    #[must_use]
+    pub fn maybe_local_repo_path(mut self, local_repo_path: Option<impl Into<PathBuf>>) -> Self {
+        self.0.local_repo_path = local_repo_path.map(Into::into);
+        self
+    }
+
+    /// An optional remote URL to use in lieu of a local repository
+    #[must_use]
+    pub fn remote_url(mut self, remote_url: impl Into<String>) -> Self {
+        self.0.remote_url = Some(remote_url.into());
+        self
+    }
+
+    /// An optional remote URL to use in lieu of a local repository
+    #[must_use]
+    pub fn maybe_remote_url(mut self, remote_url: Option<impl Into<String>>) -> Self {
+        self.0.remote_url = remote_url.map(Into::into);
+        self
+    }
+
     /// An optional path to place the git repository if grabbed remotely
     /// defaults to the temp directory on the system
-    #[builder(into)]
-    remote_repo_path: Option<PathBuf>,
+    #[must_use]
+    pub fn remote_repo_path(mut self, remote_repo_path: impl Into<PathBuf>) -> Self {
+        self.0.remote_repo_path = Some(remote_repo_path.into());
+        self
+    }
+
+    /// An optional path to place the git repository if grabbed remotely
+    /// defaults to the temp directory on the system
+    #[must_use]
+    pub fn maybe_remote_repo_path(mut self, remote_repo_path: Option<impl Into<PathBuf>>) -> Self {
+        self.0.remote_repo_path = remote_repo_path.map(Into::into);
+        self
+    }
+
     /// An optional tag to clone from the remote
-    #[builder(into)]
-    remote_tag: Option<String>,
-    /// Fall back to `.cargo_vcs_info.json` for the git SHA and dirty flag when no
-    /// repository is available (e.g. building from a published crate or via
-    /// `cargo install`).  Requires the `vcs_info` feature.
-    #[cfg(feature = "vcs_info")]
-    #[builder(default = false)]
-    vcs_info_fallback: bool,
-    /// Emit the current git branch
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_BRANCH=<BRANCH_NAME>
-    /// ```
-    ///
-    #[builder(default = all)]
-    branch: bool,
-    /// Emit the author email of the most recent commit
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_AUTHOR_EMAIL=<AUTHOR_EMAIL>
-    /// ```
-    ///
-    #[builder(default = all)]
-    commit_author_name: bool,
-    /// Emit the author name of the most recent commit
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_AUTHOR_NAME=<AUTHOR_NAME>
-    /// ```
-    ///
-    #[builder(default = all)]
-    commit_author_email: bool,
-    /// Emit the total commit count to HEAD
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_COUNT=<COUNT>
-    /// ```
-    #[builder(default = all)]
-    commit_count: bool,
-    /// Emit the commit message of the latest commit
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_MESSAGE=<MESSAGE>
-    /// ```
-    ///
-    #[builder(default = all)]
-    commit_message: bool,
-    /// Emit the commit date of the latest commit
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_DATE=<YYYY-MM-DD>
-    /// ```
-    ///
-    #[builder(default = all)]
-    commit_date: bool,
-    /// Emit the commit timestamp of the latest commit
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_TIMESTAMP=<YYYY-MM-DDThh:mm:ssZ>
-    /// ```
-    ///
-    #[builder(default = all)]
-    commit_timestamp: bool,
-    /// Emit the commit timestamp of the latest commit as Unix seconds
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_GIT_COMMIT_TIMESTAMP_UNIX=<SECONDS>
-    /// ```
-    ///
-    /// This is opt-in and is not enabled by [`Gix::all_git`].
-    #[builder(default = false)]
-    commit_timestamp_unix: bool,
+    #[must_use]
+    pub fn remote_tag(mut self, remote_tag: impl Into<String>) -> Self {
+        self.0.remote_tag = Some(remote_tag.into());
+        self
+    }
+
+    /// An optional tag to clone from the remote
+    #[must_use]
+    pub fn maybe_remote_tag(mut self, remote_tag: Option<impl Into<String>>) -> Self {
+        self.0.remote_tag = remote_tag.map(Into::into);
+        self
+    }
+
     /// Emit the describe output
     ///
     /// ```text
@@ -200,14 +262,23 @@ pub struct Gix {
     ///
     /// ## `match_pattern`
     /// Only consider tags matching the given glob pattern, excluding the "refs/tags/" prefix.
-    #[builder(
-        required,
-        default = all.then(|| Describe::builder().build()),
-        with = |tags: bool, dirty: bool, match_pattern: Option<&'static str>| {
-            Some(Describe::builder().tags(tags).dirty(dirty).maybe_match_pattern(match_pattern).build())
-        }
-    )]
-    describe: Option<Describe>,
+    #[must_use]
+    pub fn describe(
+        mut self,
+        tags: bool,
+        dirty: bool,
+        match_pattern: Option<&'static str>,
+    ) -> Self {
+        self.0.describe = Some(
+            Describe::builder()
+                .tags(tags)
+                .dirty(dirty)
+                .maybe_match_pattern(match_pattern)
+                .build(),
+        );
+        self
+    }
+
     /// Emit the SHA of the latest commit
     ///
     /// ```text
@@ -219,12 +290,12 @@ pub struct Gix {
     ///
     /// ## `short`
     /// Shortens the object name to a unique prefix
-    #[builder(
-        required,
-        default = all.then(|| Sha::builder().build()),
-        with = |short: bool| Some(Sha::builder().short(short).build())
-    )]
-    sha: Option<Sha>,
+    #[must_use]
+    pub fn sha(mut self, short: bool) -> Self {
+        self.0.sha = Some(Sha::builder().short(short).build());
+        self
+    }
+
     /// Emit the dirty state of the git repository
     /// ```text
     /// cargo:rustc-env=VERGEN_GIT_DIRTY=(true|false)
@@ -234,24 +305,13 @@ pub struct Gix {
     ///
     /// # `include_tracked`
     /// Should we include/ignore untracked files in deciding whether the repository is dirty.
-    #[builder(
-        required,
-        default = all.then(|| Dirty::builder().build()),
-        with = |include_untracked: bool| Some(Dirty::builder().include_untracked(include_untracked).build())
-    )]
-    dirty: Option<Dirty>,
-    /// Enable local offset date/timestamp output
-    #[builder(default = false)]
-    use_local: bool,
-}
-
-impl<S: gix_builder::State> GixBuilder<S> {
-    /// Convenience method that switches the defaults of [`GixBuilder`]
-    /// to enable all of the `VERGEN_GIT_*` instructions. It can only be
-    /// called at the start of the building process, i.e. when no config
-    /// has been set yet to avoid overwrites.
-    fn all(mut self) -> Self {
-        self.all = true;
+    #[must_use]
+    pub fn dirty(mut self, include_untracked: bool) -> Self {
+        self.0.dirty = Some(
+            Dirty::builder()
+                .include_untracked(include_untracked)
+                .build(),
+        );
         self
     }
 }
@@ -260,12 +320,25 @@ impl Gix {
     /// Emit all of the `VERGEN_GIT_*` instructions
     #[must_use]
     pub fn all_git() -> Self {
-        Self::builder().all().build()
+        Self::all().build()
     }
 
     /// Convenience method to setup the [`Gix`] builder with all of the `VERGEN_GIT_*` instructions on
-    pub fn all() -> GixBuilder<Empty> {
-        Self::builder().all()
+    pub fn all() -> GixBuilder {
+        GixBuilder(Self {
+            all: true,
+            branch: true,
+            commit_author_name: true,
+            commit_author_email: true,
+            commit_count: true,
+            commit_message: true,
+            commit_date: true,
+            commit_timestamp: true,
+            describe: Some(Describe::builder().build()),
+            sha: Some(Sha::builder().build()),
+            dirty: Some(Dirty::builder().build()),
+            ..Self::default()
+        })
     }
 
     fn any(&self) -> bool {
@@ -1315,7 +1388,7 @@ mod test {
         let repo = TestRepos::new(true, true, false)?;
         repo.set_index_magic_mtime()?;
 
-        let mut gix = Gix::builder().all().describe(true, true, None).build();
+        let mut gix = Gix::all().describe(true, true, None).build();
         let _ = gix.at_path(repo.path());
         let failed = Emitter::default()
             .add_instructions(&gix)?
