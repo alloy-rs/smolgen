@@ -6,7 +6,6 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use self::rustc_builder::Empty;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -16,7 +15,6 @@ use crate::{
     },
 };
 use crate::{Error, Result};
-use bon::Builder;
 use rustc_version::{Channel, VersionMeta, version_meta};
 use std::env;
 
@@ -85,44 +83,53 @@ use std::env;
 /// # }
 /// ```
 ///
-#[derive(Builder, Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Rustc {
-    /// Configures the default values.
-    /// If set to `true` all defaults are in "enabled" state.
-    /// If set to `false` all defaults are in "disabled" state.
-    #[builder(field)]
     all: bool,
     #[cfg(test)]
-    #[builder(field)]
     str_to_test: Option<&'static str>,
-    /// Enable the rustc channel
-    #[builder(default = all)]
     channel: bool,
-    /// Enable the rustc commit date
-    #[builder(default = all)]
     commit_date: bool,
-    /// Enable the rustc SHA
-    #[builder(default = all)]
     commit_hash: bool,
-    /// Enable rustc host triple
-    #[builder(default = all)]
     host_triple: bool,
-    /// Enable rustc LLVM version
-    #[builder(default = all)]
     llvm_version: bool,
-    /// Enable the rustc semver
-    #[builder(default = all)]
     semver: bool,
 }
 
-impl<S: rustc_builder::State> RustcBuilder<S> {
-    /// Convenience method that switches the defaults of [`RustcBuilder`]
-    /// to enable all of the `VERGEN_RUSTC_*` instructions. It can only be
-    /// called at the start of the building process, i.e. when no config
-    /// has been set yet to avoid overwrites.
-    fn all(mut self) -> Self {
-        self.all = true;
+builder! {
+    RustcBuilder => Rustc {
+        /// Configures the default values.
+        /// If set to `true` all defaults are in "enabled" state.
+        /// If set to `false` all defaults are in "disabled" state.
+        all: bool,
+        /// Enable the rustc channel
+        channel: bool,
+        /// Enable the rustc commit date
+        commit_date: bool,
+        /// Enable the rustc SHA
+        commit_hash: bool,
+        /// Enable rustc host triple
+        host_triple: bool,
+        /// Enable rustc LLVM version
+        llvm_version: bool,
+        /// Enable the rustc semver
+        semver: bool,
+    }
+}
+
+impl RustcBuilder {
+    #[cfg(test)]
+    #[must_use]
+    pub fn str_to_test(mut self, str_to_test: &'static str) -> Self {
+        self.0.str_to_test = Some(str_to_test);
+        self
+    }
+
+    #[cfg(test)]
+    #[must_use]
+    pub fn maybe_str_to_test(mut self, str_to_test: Option<&'static str>) -> Self {
+        self.0.str_to_test = str_to_test;
         self
     }
 }
@@ -131,12 +138,21 @@ impl Rustc {
     /// Enable all of the `VERGEN_RUSTC_*` options
     #[must_use]
     pub fn all_rustc() -> Self {
-        Self::builder().all().build()
+        Self::all().build()
     }
 
     /// Convenience method to setup the builder with all of the `VERGEN_RUSTC_*` instructions on
-    pub fn all() -> RustcBuilder<Empty> {
-        Self::builder().all()
+    pub fn all() -> RustcBuilder {
+        RustcBuilder(Self {
+            all: true,
+            channel: true,
+            commit_date: true,
+            commit_hash: true,
+            host_triple: true,
+            llvm_version: true,
+            semver: true,
+            ..Self::default()
+        })
     }
 
     fn any(self) -> bool {

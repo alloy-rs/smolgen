@@ -6,7 +6,6 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use self::sysinfo_builder::Empty;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -16,7 +15,6 @@ use crate::{
     },
 };
 use crate::{Error, Result};
-use bon::Builder;
 use std::env;
 use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_pid};
 
@@ -153,59 +151,71 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
 /// ```
 ///
-#[derive(Builder, Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Sysinfo {
-    /// Configures the default values.
-    /// If set to `true` all defaults are in "enabled" state.
-    /// If set to `false` all defaults are in "disabled" state.
-    #[builder(field)]
     all: bool,
     #[cfg(test)]
-    #[builder(field)]
     fail_pid: bool,
+    refresh_kind: Option<RefreshKind>,
+    name: bool,
+    os_version: bool,
+    user: bool,
+    memory: bool,
+    cpu_vendor: bool,
+    cpu_core_count: bool,
+    cpu_name: bool,
+    cpu_brand: bool,
+    cpu_frequency: bool,
+}
+
+builder! {
+    SysinfoBuilder => Sysinfo {
+        /// Configures the default values.
+        /// If set to `true` all defaults are in "enabled" state.
+        /// If set to `false` all defaults are in "disabled" state.
+        all: bool,
+        #[cfg(test)]
+        fail_pid: bool,
+        /// Enable the sysinfo name
+        name: bool,
+        /// Enable the sysinfo OS version
+        os_version: bool,
+        /// Enable sysinfo user
+        user: bool,
+        /// Enable sysinfo memory
+        memory: bool,
+        /// Enable sysinfo cpu vendor
+        cpu_vendor: bool,
+        /// Enable sysinfo cpu core count
+        cpu_core_count: bool,
+        /// Enable sysinfo cpu name
+        cpu_name: bool,
+        /// Enable sysinfo cpu brand
+        cpu_brand: bool,
+        /// Enable sysinfo cpu frequency
+        cpu_frequency: bool,
+    }
+}
+
+impl SysinfoBuilder {
     /// Set the [`RefreshKind`](sysinfo::RefreshKind) to use during sysinfo initialization.
     ///
     /// This allows the user to control at a more fine level what `sysinfo`
     /// will refresh on initialization.
-    #[builder(into)]
-    refresh_kind: Option<RefreshKind>,
-    /// Enable the sysinfo name
-    #[builder(default = all)]
-    name: bool,
-    /// Enable the sysinfo OS version
-    #[builder(default = all)]
-    os_version: bool,
-    /// Enable sysinfo user
-    #[builder(default = all)]
-    user: bool,
-    /// Enable sysinfo memory
-    #[builder(default = all)]
-    memory: bool,
-    /// Enable sysinfo cpu vendor
-    #[builder(default = all)]
-    cpu_vendor: bool,
-    /// Enable sysinfo cpu core count
-    #[builder(default = all)]
-    cpu_core_count: bool,
-    /// Enable sysinfo cpu name
-    #[builder(default = all)]
-    cpu_name: bool,
-    /// Enable sysinfo cpu brand
-    #[builder(default = all)]
-    cpu_brand: bool,
-    /// Enable sysinfo cpu frequency
-    #[builder(default = all)]
-    cpu_frequency: bool,
-}
+    #[must_use]
+    pub fn refresh_kind(mut self, refresh_kind: impl Into<RefreshKind>) -> Self {
+        self.0.refresh_kind = Some(refresh_kind.into());
+        self
+    }
 
-impl<S: sysinfo_builder::State> SysinfoBuilder<S> {
-    /// Convenience method that switches the defaults of [`SysinfoBuilder`]
-    /// to enable all of the `VERGEN_SYSINFO_*` instructions. It can only be
-    /// called at the start of the building process, i.e. when no config
-    /// has been set yet to avoid overwrites.
-    fn all(mut self) -> Self {
-        self.all = true;
+    /// Set the [`RefreshKind`](sysinfo::RefreshKind) to use during sysinfo initialization.
+    ///
+    /// This allows the user to control at a more fine level what `sysinfo`
+    /// will refresh on initialization.
+    #[must_use]
+    pub fn maybe_refresh_kind(mut self, refresh_kind: Option<impl Into<RefreshKind>>) -> Self {
+        self.0.refresh_kind = refresh_kind.map(Into::into);
         self
     }
 }
@@ -214,12 +224,24 @@ impl Sysinfo {
     /// Enable all of the `VERGEN_SYSINFO_*` options
     #[must_use]
     pub fn all_sysinfo() -> Sysinfo {
-        Self::builder().all().build()
+        Self::all().build()
     }
 
     /// Convenience method to setup the builder with all of the `VERGEN_SYSINFO_*` instructions on
-    pub fn all() -> SysinfoBuilder<Empty> {
-        Self::builder().all()
+    pub fn all() -> SysinfoBuilder {
+        SysinfoBuilder(Self {
+            all: true,
+            name: true,
+            os_version: true,
+            user: true,
+            memory: true,
+            cpu_vendor: true,
+            cpu_core_count: true,
+            cpu_name: true,
+            cpu_brand: true,
+            cpu_frequency: true,
+            ..Self::default()
+        })
     }
 
     fn any(&self) -> bool {

@@ -6,21 +6,39 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use bon::Builder;
-
 // Common configuration structs
 
 /// git configuration for the `describe` output
-#[derive(Builder, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Describe {
-    /// Instead of using only the annotated tags, use any tag found in refs/tags namespace.
-    #[builder(default = false)]
     tags: bool,
-    /// If the working tree has local modification "-dirty" is appended to it.
-    #[builder(default = false)]
     dirty: bool,
-    /// Only consider tags matching the given glob pattern, excluding the "refs/tags/" prefix.
     match_pattern: Option<&'static str>,
+}
+
+builder! {
+    DescribeBuilder => Describe {
+        /// Instead of using only the annotated tags, use any tag found in refs/tags namespace.
+        tags: bool,
+        /// If the working tree has local modification "-dirty" is appended to it.
+        dirty: bool,
+    }
+}
+
+impl DescribeBuilder {
+    /// Only consider tags matching the given glob pattern, excluding the "refs/tags/" prefix.
+    #[must_use]
+    pub fn match_pattern(mut self, match_pattern: &'static str) -> Self {
+        self.0.match_pattern = Some(match_pattern);
+        self
+    }
+
+    /// Only consider tags matching the given glob pattern, excluding the "refs/tags/" prefix.
+    #[must_use]
+    pub fn maybe_match_pattern(mut self, match_pattern: Option<&'static str>) -> Self {
+        self.0.match_pattern = match_pattern;
+        self
+    }
 }
 
 impl Describe {
@@ -44,11 +62,16 @@ impl Describe {
 }
 
 /// git configuration for the `sha` output
-#[derive(Builder, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Sha {
-    /// Shortens the object name to a unique prefix
-    #[builder(default = false)]
     short: bool,
+}
+
+builder! {
+    ShaBuilder => Sha {
+        /// Shortens the object name to a unique prefix
+        short: bool,
+    }
 }
 
 impl Sha {
@@ -60,11 +83,16 @@ impl Sha {
 }
 
 /// git configuration for the `dirty` output
-#[derive(Builder, Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Dirty {
-    /// Should we include/ignore untracked files in deciding whether the repository is dirty.
-    #[builder(default = false)]
     include_untracked: bool,
+}
+
+builder! {
+    DirtyBuilder => Dirty {
+        /// Should we include/ignore untracked files in deciding whether the repository is dirty.
+        include_untracked: bool,
+    }
 }
 
 impl Dirty {

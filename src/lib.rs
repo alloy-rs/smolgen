@@ -284,6 +284,45 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 /// A [`Result`](core::result::Result) that defaults to [`Error`].
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
+/// Defines a builder that wraps the built type, starting from its [`Default`], with one setter
+/// per listed field.
+macro_rules! builder {
+    (
+        $builder:ident => $ty:ident {
+            $( $(#[$attr:meta])* $field:ident: $field_ty:ty ),* $(,)?
+        }
+    ) => {
+        #[doc = concat!("A builder for [`", stringify!($ty), "`].")]
+        #[derive(Clone, Debug)]
+        pub struct $builder($ty);
+
+        impl $ty {
+            #[doc = concat!("Creates a builder for [`", stringify!($ty), "`].")]
+            #[must_use]
+            pub fn builder() -> $builder {
+                $builder(<$ty>::default())
+            }
+        }
+
+        impl $builder {
+            $(
+                $(#[$attr])*
+                #[must_use]
+                pub fn $field(mut self, $field: $field_ty) -> Self {
+                    self.0.$field = $field;
+                    self
+                }
+            )*
+
+            #[doc = concat!("Builds the [`", stringify!($ty), "`].")]
+            #[must_use]
+            pub fn build(self) -> $ty {
+                self.0
+            }
+        }
+    };
+}
+
 mod config;
 pub mod constants;
 mod emitter;
@@ -312,10 +351,10 @@ mod si;
 #[path = "../tests/test_util/mod.rs"]
 mod test_util;
 
-pub use self::config::{Describe, Dirty, Sha};
+pub use self::config::{Describe, DescribeBuilder, Dirty, DirtyBuilder, Sha, ShaBuilder};
 pub use self::emitter::Emitter;
 #[doc(hidden)]
-pub use self::entries::test_gen::CustomInsGen;
+pub use self::entries::test_gen::{CustomInsGen, CustomInsGenBuilder};
 pub use self::entries::{
     Add as AddEntries, AddCustom as AddCustomEntries, CargoRerunIfChanged, CargoRustcEnvMap,
     CargoWarning, DefaultConfig,
@@ -328,9 +367,9 @@ pub use self::utils::vcs_info;
 pub use self::utils::{add_default_map_entry, add_map_entry, count_idempotent};
 
 #[cfg(feature = "build")]
-pub use self::build::Build;
+pub use self::build::{Build, BuildBuilder};
 #[cfg(feature = "cargo")]
-pub use self::cargo::Cargo;
+pub use self::cargo::{Cargo, CargoBuilder};
 #[cfg(feature = "git2")]
 pub use self::git2::Git2;
 #[cfg(feature = "gitcl")]
@@ -338,9 +377,9 @@ pub use self::gitcl::Gitcl;
 #[cfg(feature = "gix")]
 pub use self::gix::Gix;
 #[cfg(feature = "rustc")]
-pub use self::rustc::Rustc;
+pub use self::rustc::{Rustc, RustcBuilder};
 #[cfg(feature = "si")]
-pub use self::si::Sysinfo;
+pub use self::si::{Sysinfo, SysinfoBuilder};
 #[cfg(feature = "cargo_metadata")]
 pub use cargo_metadata::DependencyKind;
 #[cfg(feature = "si")]

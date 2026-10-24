@@ -6,10 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use self::cargo_builder::Empty;
 #[cfg(feature = "cargo_metadata")]
-use self::cargo_builder::SetDependencies;
-use self::cargo_builder::{SetDebug, SetFeatures, SetOptLevel, SetTargetTriple};
 #[cfg(feature = "cargo_metadata")]
 use crate::constants::CARGO_DEPENDENCIES;
 use crate::{
@@ -18,7 +15,6 @@ use crate::{
     constants::{CARGO_DEBUG, CARGO_FEATURES, CARGO_OPT_LEVEL, CARGO_TARGET_TRIPLE},
 };
 use crate::{Error, Result};
-use bon::Builder;
 #[cfg(feature = "cargo_metadata")]
 use cargo_metadata::{DepKindInfo, DependencyKind, MetadataCommand, Package, PackageId};
 #[cfg(feature = "cargo_metadata")]
@@ -110,55 +106,68 @@ use std::env;
 /// # }
 /// ```
 ///
-#[derive(Builder, Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cargo {
-    /// Configures the default values.
-    /// If set to `true` all defaults are in "enabled" state.
-    /// If set to `false` all defaults are in "disabled" state.
-    #[builder(field)]
     all: bool,
-    /// Emit the DEBUG value set by cargo
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_CARGO_DEBUG=true|false
-    /// ```
-    ///
-    #[builder(default = all)]
     debug: bool,
-    /// Emit the `CARGO_FEATURE_*` values set by cargo
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_CARGO_FEATURES=<features>
-    /// ```
-    ///
-    #[builder(default = all)]
     features: bool,
-    /// Emit the `OPT_LEVEL` value set by cargo
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_CARGO_OPT_LEVEL=<opt_level>
-    /// ```
-    ///
-    #[builder(default = all)]
     opt_level: bool,
-    /// Emit the TARGET value set by cargo
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_CARGO_TARGET_TRIPLE=<target_triple>
-    /// ```
-    ///
-    #[builder(default = all)]
     target_triple: bool,
-    /// Emit the dependencies value derived from `Cargo.toml`
-    ///
-    /// ```text
-    /// cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=<dependencies>
-    /// ```
-    ///
     #[cfg(feature = "cargo_metadata")]
-    #[builder(default = all)]
     dependencies: bool,
+    #[cfg(feature = "cargo_metadata")]
+    name_filter: Option<&'static str>,
+    #[cfg(feature = "cargo_metadata")]
+    dep_kind_filter: Option<DependencyKind>,
+}
+
+builder! {
+    CargoBuilder => Cargo {
+        /// Configures the default values.
+        /// If set to `true` all defaults are in "enabled" state.
+        /// If set to `false` all defaults are in "disabled" state.
+        all: bool,
+        /// Emit the DEBUG value set by cargo
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_CARGO_DEBUG=true|false
+        /// ```
+        ///
+        debug: bool,
+        /// Emit the `CARGO_FEATURE_*` values set by cargo
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_CARGO_FEATURES=<features>
+        /// ```
+        ///
+        features: bool,
+        /// Emit the `OPT_LEVEL` value set by cargo
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_CARGO_OPT_LEVEL=<opt_level>
+        /// ```
+        ///
+        opt_level: bool,
+        /// Emit the TARGET value set by cargo
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_CARGO_TARGET_TRIPLE=<target_triple>
+        /// ```
+        ///
+        target_triple: bool,
+        /// Emit the dependencies value derived from `Cargo.toml`
+        ///
+        /// ```text
+        /// cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=<dependencies>
+        /// ```
+        ///
+        #[cfg(feature = "cargo_metadata")]
+        dependencies: bool,
+    }
+}
+
+impl CargoBuilder {
     /// Add a name [`Regex`](regex::Regex) filter for cargo dependencies
     ///
     /// ```text
@@ -166,8 +175,25 @@ pub struct Cargo {
     /// ```
     ///
     #[cfg(feature = "cargo_metadata")]
-    #[builder(into)]
-    name_filter: Option<&'static str>,
+    #[must_use]
+    pub fn name_filter(mut self, name_filter: impl Into<&'static str>) -> Self {
+        self.0.name_filter = Some(name_filter.into());
+        self
+    }
+
+    /// Add a name [`Regex`](regex::Regex) filter for cargo dependencies
+    ///
+    /// ```text
+    /// cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=<deps_filtered_by_name>
+    /// ```
+    ///
+    #[cfg(feature = "cargo_metadata")]
+    #[must_use]
+    pub fn maybe_name_filter(mut self, name_filter: Option<impl Into<&'static str>>) -> Self {
+        self.0.name_filter = name_filter.map(Into::into);
+        self
+    }
+
     /// Add a [`DependencyKind`](cargo_metadata::DependencyKind) filter for cargo dependencies
     ///
     /// ```text
@@ -175,17 +201,25 @@ pub struct Cargo {
     /// ```
     ///
     #[cfg(feature = "cargo_metadata")]
-    #[builder(into)]
-    dep_kind_filter: Option<DependencyKind>,
-}
+    #[must_use]
+    pub fn dep_kind_filter(mut self, dep_kind_filter: impl Into<DependencyKind>) -> Self {
+        self.0.dep_kind_filter = Some(dep_kind_filter.into());
+        self
+    }
 
-impl<S: cargo_builder::State> CargoBuilder<S> {
-    /// Convenience method that switches the defaults of [`CargoBuilder`]
-    /// to enable all of the `VERGEN_CARGO_*` instructions. It can only be
-    /// called at the start of the building process, i.e. when no config
-    /// has been set yet to avoid overwrites.
-    fn all(mut self) -> Self {
-        self.all = true;
+    /// Add a [`DependencyKind`](cargo_metadata::DependencyKind) filter for cargo dependencies
+    ///
+    /// ```text
+    /// cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=<deps_filtered_by_kind>
+    /// ```
+    ///
+    #[cfg(feature = "cargo_metadata")]
+    #[must_use]
+    pub fn maybe_dep_kind_filter(
+        mut self,
+        dep_kind_filter: Option<impl Into<DependencyKind>>,
+    ) -> Self {
+        self.0.dep_kind_filter = dep_kind_filter.map(Into::into);
         self
     }
 }
@@ -194,35 +228,33 @@ impl Cargo {
     /// Emit all of the `VERGEN_CARGO_*` instructions
     #[must_use]
     pub fn all_cargo() -> Self {
-        Self::builder().all().build()
+        Self::all().build()
     }
 
     /// Convenience method to setup the builder with all of the `VERGEN_CARGO_*` instructions on
-    pub fn all() -> CargoBuilder<Empty> {
-        Self::builder().all()
+    pub fn all() -> CargoBuilder {
+        CargoBuilder(Self {
+            all: true,
+            debug: true,
+            features: true,
+            opt_level: true,
+            target_triple: true,
+            #[cfg(feature = "cargo_metadata")]
+            dependencies: true,
+            ..Self::default()
+        })
     }
 
     /// Emit all of the `VERGEN_CARGO_*` instructions and return the builder
-    #[cfg(not(feature = "cargo_metadata"))]
-    pub fn all_cargo_builder() -> CargoBuilder<SetTargetTriple<SetOptLevel<SetFeatures<SetDebug>>>>
-    {
-        Self::builder()
+    pub fn all_cargo_builder() -> CargoBuilder {
+        let builder = Self::builder()
             .debug(true)
             .features(true)
             .opt_level(true)
-            .target_triple(true)
-    }
-
-    /// Emit all of the `VERGEN_CARGO_*` instructions and return the builder
-    #[cfg(feature = "cargo_metadata")]
-    pub fn all_cargo_builder()
-    -> CargoBuilder<SetDependencies<SetTargetTriple<SetOptLevel<SetFeatures<SetDebug>>>>> {
-        Self::builder()
-            .debug(true)
-            .features(true)
-            .opt_level(true)
-            .target_triple(true)
-            .dependencies(true)
+            .target_triple(true);
+        #[cfg(feature = "cargo_metadata")]
+        let builder = builder.dependencies(true);
+        builder
     }
 
     #[cfg(not(feature = "cargo_metadata"))]

@@ -183,14 +183,18 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
 pub(crate) mod test_gen {
     use crate::{AddCustomEntries, CargoRerunIfChanged, CargoWarning};
     use crate::{Error, Result};
-    use bon::Builder;
     use std::collections::BTreeMap;
 
     #[doc(hidden)]
-    #[derive(Builder, Clone, Copy, Debug, Default)]
+    #[derive(Clone, Copy, Debug, Default)]
     pub struct CustomInsGen {
-        #[builder(default = false)]
         fail: bool,
+    }
+
+    builder! {
+        CustomInsGenBuilder => CustomInsGen {
+            fail: bool,
+        }
     }
 
     impl AddCustomEntries<&str, &str> for CustomInsGen {
