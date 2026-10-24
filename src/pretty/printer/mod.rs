@@ -9,7 +9,6 @@
 use self::{prefix::Prefix, suffix::Suffix};
 use crate::Result;
 use crate::pretty::utils::{has_value, split_key, split_kv};
-use bon::Builder;
 #[cfg(feature = "color")]
 use console::Style;
 use std::{collections::BTreeMap, io::Write};
@@ -117,40 +116,139 @@ Pretty::builder()
 "
 )]
 ///
-#[derive(Builder, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Pretty {
-    #[builder(field)]
     vars: Vec<(String, String, String)>,
-    #[builder(field)]
     max_label: usize,
-    #[builder(field)]
     max_category: usize,
 
-    /// Set the optional [`Prefix`] configuration
     prefix: Option<Prefix>,
-    /// The `vergen` env variables.  Should be set with [`vergen_pretty_env!`](crate::vergen_pretty_env) macro.
     env: BTreeMap<&'static str, Option<&'static str>>,
-    /// A set of `vergen` env variable names that should be filtered regardless if they are set or not.
     filter: Option<Vec<&'static str>>,
-    /// Include category output.  Default: true
-    #[builder(default = true)]
     category: bool,
-    /// The [`Style`] to apply to the keys in the output
     #[cfg(feature = "color")]
     key_style: Option<Style>,
-    /// The [`Style`] to apply to the values in the output
     #[cfg(feature = "color")]
     value_style: Option<Style>,
-    /// Set the optional [`Suffix`] configuration
     suffix: Option<Suffix>,
-    /// Set the tracing [`Level`]
     #[cfg(feature = "trace")]
-    #[builder(default = Level::INFO)]
     level: Level,
-    /// Flatten the serde output if no prefix/suffix are defined. Default: false
     #[cfg(feature = "serde")]
-    #[builder(default = false)]
     flatten: bool,
+}
+
+impl Default for Pretty {
+    fn default() -> Self {
+        Self {
+            vars: Vec::new(),
+            max_label: 0,
+            max_category: 0,
+            prefix: None,
+            env: BTreeMap::new(),
+            filter: None,
+            category: true,
+            #[cfg(feature = "color")]
+            key_style: None,
+            #[cfg(feature = "color")]
+            value_style: None,
+            suffix: None,
+            #[cfg(feature = "trace")]
+            level: Level::INFO,
+            #[cfg(feature = "serde")]
+            flatten: false,
+        }
+    }
+}
+
+builder! {
+    PrettyBuilder => Pretty {
+        /// The `vergen` env variables.  Should be set with [`vergen_pretty_env!`](crate::vergen_pretty_env) macro.
+        env: BTreeMap<&'static str, Option<&'static str>>,
+        /// Include category output.  Default: true
+        category: bool,
+        /// Set the tracing [`Level`]
+        #[cfg(feature = "trace")]
+        level: Level,
+        /// Flatten the serde output if no prefix/suffix are defined. Default: false
+        #[cfg(feature = "serde")]
+        flatten: bool,
+    }
+}
+
+impl PrettyBuilder {
+    /// Set the optional [`Prefix`] configuration
+    #[must_use]
+    pub fn prefix(mut self, prefix: Prefix) -> Self {
+        self.0.prefix = Some(prefix);
+        self
+    }
+
+    /// Set the optional [`Prefix`] configuration
+    #[must_use]
+    pub fn maybe_prefix(mut self, prefix: Option<Prefix>) -> Self {
+        self.0.prefix = prefix;
+        self
+    }
+
+    /// A set of `vergen` env variable names that should be filtered regardless if they are set or not.
+    #[must_use]
+    pub fn filter(mut self, filter: Vec<&'static str>) -> Self {
+        self.0.filter = Some(filter);
+        self
+    }
+
+    /// A set of `vergen` env variable names that should be filtered regardless if they are set or not.
+    #[must_use]
+    pub fn maybe_filter(mut self, filter: Option<Vec<&'static str>>) -> Self {
+        self.0.filter = filter;
+        self
+    }
+
+    /// The [`Style`] to apply to the keys in the output
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn key_style(mut self, key_style: Style) -> Self {
+        self.0.key_style = Some(key_style);
+        self
+    }
+
+    /// The [`Style`] to apply to the keys in the output
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn maybe_key_style(mut self, key_style: Option<Style>) -> Self {
+        self.0.key_style = key_style;
+        self
+    }
+
+    /// The [`Style`] to apply to the values in the output
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn value_style(mut self, value_style: Style) -> Self {
+        self.0.value_style = Some(value_style);
+        self
+    }
+
+    /// The [`Style`] to apply to the values in the output
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn maybe_value_style(mut self, value_style: Option<Style>) -> Self {
+        self.0.value_style = value_style;
+        self
+    }
+
+    /// Set the optional [`Suffix`] configuration
+    #[must_use]
+    pub fn suffix(mut self, suffix: Suffix) -> Self {
+        self.0.suffix = Some(suffix);
+        self
+    }
+
+    /// Set the optional [`Suffix`] configuration
+    #[must_use]
+    pub fn maybe_suffix(mut self, suffix: Option<Suffix>) -> Self {
+        self.0.suffix = suffix;
+        self
+    }
 }
 
 impl Pretty {

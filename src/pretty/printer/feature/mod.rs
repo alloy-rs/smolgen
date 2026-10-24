@@ -6,13 +6,10 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+#[cfg(any(feature = "serde", feature = "rkyv"))]
+use crate::pretty::{Prefix, Pretty, Suffix};
 #[cfg(feature = "serde")]
 use ::serde::{Deserialize, Serialize};
-#[cfg(any(feature = "serde", feature = "rkyv"))]
-use {
-    crate::pretty::{Prefix, Pretty, Suffix},
-    bon::Builder,
-};
 
 #[cfg(feature = "color")]
 pub(crate) mod color;
@@ -25,19 +22,55 @@ pub(crate) mod trace;
 
 #[cfg(any(feature = "serde", feature = "rkyv"))]
 /// Extension of `Pretty` to support serialization
-#[derive(Builder, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct PrettyExt {
-    /// Environment variables from `vergen`
     vars: Vec<(String, String, String)>,
-    /// Optional prefix to print before the variables
     prefix: Option<Prefix>,
-    /// Optional suffix to print after the variables
     suffix: Option<Suffix>,
+}
+
+#[cfg(any(feature = "serde", feature = "rkyv"))]
+builder! {
+    PrettyExtBuilder => PrettyExt {
+        /// Environment variables from `vergen`
+        vars: Vec<(String, String, String)>,
+    }
+}
+
+#[cfg(any(feature = "serde", feature = "rkyv"))]
+impl PrettyExtBuilder {
+    /// Optional prefix to print before the variables
+    #[must_use]
+    pub fn prefix(mut self, prefix: Prefix) -> Self {
+        self.0.prefix = Some(prefix);
+        self
+    }
+
+    /// Optional prefix to print before the variables
+    #[must_use]
+    pub fn maybe_prefix(mut self, prefix: Option<Prefix>) -> Self {
+        self.0.prefix = prefix;
+        self
+    }
+
+    /// Optional suffix to print after the variables
+    #[must_use]
+    pub fn suffix(mut self, suffix: Suffix) -> Self {
+        self.0.suffix = Some(suffix);
+        self
+    }
+
+    /// Optional suffix to print after the variables
+    #[must_use]
+    pub fn maybe_suffix(mut self, suffix: Option<Suffix>) -> Self {
+        self.0.suffix = suffix;
+        self
+    }
 }
 
 #[cfg(any(feature = "serde", feature = "rkyv"))]

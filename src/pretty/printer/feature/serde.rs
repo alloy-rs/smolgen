@@ -6,8 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use crate::pretty::Pretty;
-use convert_case::{Case, Casing};
+use crate::pretty::{Pretty, utils::snake_case};
 use serde::{
     Serialize, Serializer,
     ser::{SerializeMap, SerializeStruct},
@@ -56,7 +55,7 @@ impl Serialize for VarsTuple {
         let vars = &self.0;
         let mut map = serializer.serialize_map(Some(vars.len()))?;
         for (category, label, value) in vars {
-            map.serialize_entry(&format!("{category}_{}", label.to_case(Case::Snake)), value)?;
+            map.serialize_entry(&format!("{category}_{}", snake_case(label)), value)?;
         }
         map.end()
     }

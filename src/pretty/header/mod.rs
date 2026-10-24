@@ -11,11 +11,10 @@
 use crate::pretty::{Prefix, Pretty, Suffix};
 
 use crate::Result;
-use bon::Builder;
 use console::Style;
-#[cfg(feature = "color")]
-use rand::RngExt;
 use std::{collections::BTreeMap, io::Write};
+#[cfg(feature = "color")]
+use std::{collections::hash_map::RandomState, hash::BuildHasher};
 
 #[cfg(feature = "color")]
 fn from_u8(val: u8) -> Style {
@@ -56,23 +55,71 @@ pub type Env = BTreeMap<&'static str, Option<&'static str>>;
 /// # }
 /// ```
 ///
-#[derive(Builder, Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config {
     #[cfg(feature = "color")]
-    #[builder(default = false)]
-    /// Use a random [`Style`] color for the output
     random_style: bool,
     #[cfg(feature = "color")]
-    /// Use the given [`Style`] for the output (mutually exclusive with `random_style`)
     style: Option<Style>,
-    /// An optional prefix string
-    #[builder(into)]
     prefix: Option<&'static str>,
-    /// The vergen env (generated with the [`vergen_pretty_env`](crate::vergen_pretty_env) macro)
     env: Env,
-    /// An optional suffix string
-    #[builder(into)]
     suffix: Option<&'static str>,
+}
+
+builder! {
+    ConfigBuilder => Config {
+        /// Use a random [`Style`] color for the output
+        #[cfg(feature = "color")]
+        random_style: bool,
+        /// The vergen env (generated with the [`vergen_pretty_env`](crate::vergen_pretty_env) macro)
+        env: Env,
+    }
+}
+
+impl ConfigBuilder {
+    /// Use the given [`Style`] for the output (mutually exclusive with `random_style`)
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn style(mut self, style: Style) -> Self {
+        self.0.style = Some(style);
+        self
+    }
+
+    /// Use the given [`Style`] for the output (mutually exclusive with `random_style`)
+    #[cfg(feature = "color")]
+    #[must_use]
+    pub fn maybe_style(mut self, style: Option<Style>) -> Self {
+        self.0.style = style;
+        self
+    }
+
+    /// An optional prefix string
+    #[must_use]
+    pub fn prefix(mut self, prefix: impl Into<&'static str>) -> Self {
+        self.0.prefix = Some(prefix.into());
+        self
+    }
+
+    /// An optional prefix string
+    #[must_use]
+    pub fn maybe_prefix(mut self, prefix: Option<impl Into<&'static str>>) -> Self {
+        self.0.prefix = prefix.map(Into::into);
+        self
+    }
+
+    /// An optional suffix string
+    #[must_use]
+    pub fn suffix(mut self, suffix: impl Into<&'static str>) -> Self {
+        self.0.suffix = Some(suffix.into());
+        self
+    }
+
+    /// An optional suffix string
+    #[must_use]
+    pub fn maybe_suffix(mut self, suffix: Option<impl Into<&'static str>>) -> Self {
+        self.0.suffix = suffix.map(Into::into);
+        self
+    }
 }
 
 /// Generate a pretty header based off your emitted `vergen` variables.
@@ -168,8 +215,7 @@ fn trace(_config: &Config) {}
 #[cfg(feature = "color")]
 fn get_style(random_style: bool, style_opt: Option<Style>) -> Style {
     if random_style {
-        let mut rng = rand::rng();
-        from_u8(rng.random_range(0..7))
+        from_u8((RandomState::new().hash_one(()) % 7) as u8)
     } else if let Some(style) = style_opt {
         style
     } else {

@@ -6,8 +6,6 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use convert_case::{Case, Casing};
-
 #[allow(clippy::ref_option_ref)]
 pub(crate) fn has_value(
     tuple: (&&'static str, &Option<&'static str>),
@@ -60,8 +58,64 @@ fn caps_proper(val: String) -> String {
     if val == "cpu" || val == "os" || val == "llvm" || val == "sha" {
         val.to_ascii_uppercase()
     } else {
-        val.to_case(Case::Title)
+        title_case(&val)
     }
+}
+
+#[cfg(feature = "serde")]
+pub(crate) fn snake_case(val: &str) -> String {
+    words(val)
+        .iter()
+        .map(|word| word.to_lowercase())
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
+fn title_case(val: &str) -> String {
+    words(val)
+        .iter()
+        .map(|word| {
+            let mut chars = word.chars();
+            chars.next().map_or_else(String::new, |c| {
+                c.to_uppercase()
+                    .chain(chars.as_str().to_lowercase().chars())
+                    .collect()
+            })
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Splits `val` into words, keeping empty ones: on `_`, `-` and ` `, between lowercase and
+/// uppercase, between letters and digits, and before the last uppercase letter of an acronym
+/// followed by a lowercase letter.
+fn words(val: &str) -> Vec<&str> {
+    if val.is_empty() {
+        return Vec::new();
+    }
+    let chars: Vec<_> = val.char_indices().collect();
+    let mut words = Vec::new();
+    let mut start = 0;
+    for (i, &(idx, c)) in chars.iter().enumerate() {
+        if matches!(c, '_' | '-' | ' ') {
+            words.push(&val[start..idx]);
+            start = idx + 1;
+        } else if let Some(&(next_idx, next)) = chars.get(i + 1) {
+            let letter = |c: char| c.is_lowercase() || c.is_uppercase();
+            let split = (c.is_lowercase() && next.is_uppercase())
+                || (letter(c) && next.is_ascii_digit())
+                || (c.is_ascii_digit() && letter(next))
+                || (c.is_uppercase()
+                    && next.is_uppercase()
+                    && chars.get(i + 2).is_some_and(|&(_, c)| c.is_lowercase()));
+            if split {
+                words.push(&val[start..next_idx]);
+                start = next_idx;
+            }
+        }
+    }
+    words.push(&val[start..]);
+    words
 }
 
 #[cfg(test)]

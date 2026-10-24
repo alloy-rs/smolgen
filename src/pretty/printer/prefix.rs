@@ -7,7 +7,6 @@
 // modified, or distributed except according to those terms.
 
 use crate::Result;
-use bon::Builder;
 #[cfg(feature = "color")]
 use console::Style;
 #[cfg(feature = "serde")]
@@ -17,29 +16,65 @@ use std::io::Write;
 use tracing::Level;
 
 /// Configure prefix output for [`Pretty`](crate::pretty::Pretty)
-#[derive(Builder, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(not(feature = "trace"), derive(Default))]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
     feature = "rkyv",
     derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)
 )]
 pub struct Prefix {
-    /// The prefix lines to output
     pub(crate) lines: Vec<String>,
-    /// The [`Style`] to apply to the output lines
     #[cfg(feature = "color")]
     #[cfg_attr(feature = "serde", serde(skip))]
     #[cfg_attr(feature = "rkyv", rkyv(with = rkyv::with::Map<crate::pretty::printer::feature::rkyv_support::StyleWith>))]
     pub(crate) style: Option<Style>,
-    /// The tracing [`Level`] to output the prefix at
     #[cfg(feature = "trace")]
-    #[builder(default = Level::INFO)]
     #[cfg_attr(feature = "serde", serde(skip, default = "default_level"))]
     #[cfg_attr(
         feature = "rkyv",
         rkyv(with = crate::pretty::printer::feature::rkyv_support::LevelWith)
     )]
     pub(crate) level: Level,
+}
+
+#[cfg(feature = "trace")]
+impl Default for Prefix {
+    fn default() -> Self {
+        Self {
+            lines: Vec::new(),
+            #[cfg(feature = "color")]
+            style: None,
+            level: Level::INFO,
+        }
+    }
+}
+
+builder! {
+    PrefixBuilder => Prefix {
+        /// The prefix lines to output
+        lines: Vec<String>,
+        /// The tracing [`Level`] to output the prefix at
+        #[cfg(feature = "trace")]
+        level: Level,
+    }
+}
+
+#[cfg(feature = "color")]
+impl PrefixBuilder {
+    /// The [`Style`] to apply to the output lines
+    #[must_use]
+    pub fn style(mut self, style: Style) -> Self {
+        self.0.style = Some(style);
+        self
+    }
+
+    /// The [`Style`] to apply to the output lines
+    #[must_use]
+    pub fn maybe_style(mut self, style: Option<Style>) -> Self {
+        self.0.style = style;
+        self
+    }
 }
 
 impl Prefix {

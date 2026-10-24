@@ -105,18 +105,18 @@ mod printer;
 mod utils;
 
 #[cfg(feature = "header")]
-pub use self::header::Config;
-#[cfg(feature = "header")]
 pub use self::header::Env;
 #[cfg(feature = "header")]
 pub use self::header::header;
-pub use self::printer::Pretty;
-#[cfg(any(feature = "serde", feature = "rkyv"))]
-pub use self::printer::feature::PrettyExt;
+#[cfg(feature = "header")]
+pub use self::header::{Config, ConfigBuilder};
 #[cfg(all(feature = "rkyv", feature = "color"))]
 pub use self::printer::feature::rkyv_support::StyleWith;
-pub use self::printer::prefix::Prefix;
-pub use self::printer::suffix::Suffix;
+#[cfg(any(feature = "serde", feature = "rkyv"))]
+pub use self::printer::feature::{PrettyExt, PrettyExtBuilder};
+pub use self::printer::prefix::{Prefix, PrefixBuilder};
+pub use self::printer::suffix::{Suffix, SuffixBuilder};
+pub use self::printer::{Pretty, PrettyBuilder};
 #[cfg(feature = "color")]
 #[doc(inline)]
 pub use console::Style;
