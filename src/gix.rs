@@ -14,6 +14,7 @@ use crate::{
         GIT_COMMIT_DATE_NAME, GIT_COMMIT_MESSAGE, GIT_COMMIT_TIMESTAMP_NAME,
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
+    datetime::DateTime,
 };
 use crate::{Error, Result};
 use gix::{
@@ -25,10 +26,6 @@ use gix::{
 use std::{
     env,
     path::{Path, PathBuf},
-};
-use time::{
-    OffsetDateTime, UtcOffset,
-    format_description::{self, well_known::Iso8601},
 };
 #[cfg(feature = "allow_remote")]
 use {
@@ -726,7 +723,7 @@ impl Gix {
                 cargo_warning,
             );
         } else {
-            self.add_git_date_entry(idempotent, &ts, cargo_rustc_env, cargo_warning)?;
+            self.add_git_date_entry(idempotent, &ts, cargo_rustc_env, cargo_warning);
         }
         if let Ok(_value) = env::var(GIT_COMMIT_TIMESTAMP_NAME) {
             add_default_map_entry(
@@ -754,7 +751,7 @@ impl Gix {
     fn add_git_timestamp_unix_entry(
         &self,
         idempotent: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) {
@@ -777,12 +774,10 @@ impl Gix {
     }
 
     // this in not included in coverage, because on *nix the local offset is always unsafe
-    fn compute_local_offset(&self, commit: &Commit<'_>) -> Result<OffsetDateTime> {
-        let no_offset = OffsetDateTime::from_unix_timestamp(commit.time()?.seconds)?;
+    fn compute_local_offset(&self, commit: &Commit<'_>) -> Result<DateTime> {
+        let no_offset = DateTime::from_unix_timestamp(commit.time()?.seconds)?;
         if self.use_local {
-            let local = UtcOffset::local_offset_at(no_offset)?;
-            let local_offset = no_offset.checked_to_offset(local).unwrap_or(no_offset);
-            Ok(local_offset)
+            no_offset.to_local()
         } else {
             Ok(no_offset)
         }
@@ -791,10 +786,10 @@ impl Gix {
     fn add_git_date_entry(
         &self,
         idempotent: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
-    ) -> Result<()> {
+    ) {
         if self.commit_date {
             if idempotent {
                 add_default_map_entry(
@@ -804,21 +799,15 @@ impl Gix {
                     cargo_warning,
                 );
             } else {
-                let format = format_description::parse_borrowed::<1>("[year]-[month]-[day]")?;
-                add_map_entry(
-                    VergenKey::GitCommitDate,
-                    ts.format(&format)?,
-                    cargo_rustc_env,
-                );
+                add_map_entry(VergenKey::GitCommitDate, ts.format_date(), cargo_rustc_env);
             }
         }
-        Ok(())
     }
 
     fn add_git_timestamp_entry(
         &self,
         idempotent: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
@@ -833,7 +822,7 @@ impl Gix {
             } else {
                 add_map_entry(
                     VergenKey::GitCommitTimestamp,
-                    ts.format(&Iso8601::DEFAULT)?,
+                    ts.format_iso8601()?,
                     cargo_rustc_env,
                 );
             }

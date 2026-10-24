@@ -1,5 +1,13 @@
 //! A minimal UTC-offset date and time, covering only what `smolgen` needs.
 
+#![cfg_attr(
+    not(all(feature = "build", feature = "gitcl")),
+    allow(
+        dead_code,
+        reason = "each feature uses a different part of this module"
+    )
+)]
+
 use crate::Result;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,6 +16,8 @@ const MIN_YEAR: i64 = -9999;
 const MAX_YEAR: i64 = 9999;
 const MIN_UNIX: i64 = days_from_civil(MIN_YEAR, 1, 1) * SECS_PER_DAY;
 const MAX_UNIX: i64 = days_from_civil(MAX_YEAR, 12, 31) * SECS_PER_DAY + SECS_PER_DAY - 1;
+/// The largest UTC offset `time` accepts, 25:59:59.
+const MAX_OFFSET: i32 = 93_599;
 
 /// An instant with nanosecond precision and the UTC offset it is displayed in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,7 +60,6 @@ impl DateTime {
     }
 
     /// Parses an RFC 3339 timestamp such as `2024-01-31T03:26:34+01:00`.
-    #[cfg_attr(not(feature = "gitcl"), allow(dead_code))]
     pub(crate) fn parse_rfc3339(s: &str) -> Result<Self> {
         Self::parse_rfc3339_bytes(s.as_bytes())
             .ok_or_else(|| format!("invalid RFC 3339 timestamp: {s:?}").into())
@@ -132,14 +141,14 @@ impl DateTime {
         Some(dt)
     }
 
-    /// Converts to the system's current local UTC offset.
+    /// Converts to the system's local UTC offset at this instant.
     ///
     /// The value is unchanged if the local date would fall outside years -9999 through 9999.
     pub(crate) fn to_local(self) -> Result<Self> {
-        let local = Self {
-            offset: local_offset()?,
-            ..self
-        };
+        let offset = sys::local_offset_at(self)
+            .filter(|offset| offset.abs() <= MAX_OFFSET)
+            .ok_or("unable to determine the local UTC offset")?;
+        let local = Self { offset, ..self };
         let (year, ..) = local.civil();
         Ok(if (MIN_YEAR..=MAX_YEAR).contains(&year) {
             local
@@ -167,6 +176,9 @@ impl DateTime {
         if year < 0 {
             return Err(format!("year {year} cannot be formatted as ISO 8601").into());
         }
+        if self.offset % 60 != 0 {
+            return Err("UTC offsets with seconds cannot be formatted as ISO 8601".into());
+        }
         let (h, m, s) = (secs / 3600, secs / 60 % 60, secs % 60);
         let mut out = format!(
             "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{:09}",
@@ -190,35 +202,159 @@ impl DateTime {
     }
 }
 
-#[cfg(unix)]
-fn local_offset() -> Result<i32> {
-    let output = std::process::Command::new("date").arg("+%z").output()?;
-    if !output.status.success() {
-        return Err("`date +%z` failed".into());
-    }
-    let out = String::from_utf8_lossy(&output.stdout);
-    let out = out.trim();
-    let (sign, digits) = match out.as_bytes() {
-        [b'+', rest @ ..] => (1, rest),
-        [b'-', rest @ ..] => (-1, rest),
-        _ => (0, &[][..]),
+/// Reads the local UTC offset from `struct tm`'s `tm_gmtoff`, which follows the nine `c_int`
+/// fields on these targets.
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "dragonfly",
+))]
+mod sys {
+    use super::DateTime;
+    use std::{
+        ffi::{c_char, c_int, c_long},
+        mem::MaybeUninit,
     };
-    match digits {
-        [h1, h2, m1, m2] if digits.iter().all(u8::is_ascii_digit) => {
-            let h = i32::from((h1 - b'0') * 10 + (h2 - b'0'));
-            let m = i32::from((m1 - b'0') * 10 + (m2 - b'0'));
-            if sign != 0 && m < 60 {
-                return Ok(sign * (h * 3600 + m * 60));
-            }
-        }
-        _ => {}
+
+    #[cfg(any(
+        target_os = "netbsd",
+        target_os = "openbsd",
+        all(target_os = "freebsd", not(target_arch = "x86")),
+    ))]
+    type TimeT = i64;
+    #[cfg(not(any(
+        target_os = "netbsd",
+        target_os = "openbsd",
+        all(target_os = "freebsd", not(target_arch = "x86")),
+    )))]
+    type TimeT = c_long;
+
+    #[repr(C)]
+    struct Tm {
+        _fields: [c_int; 9],
+        tm_gmtoff: c_long,
+        _tm_zone: *const c_char,
     }
-    Err(format!("unexpected `date +%z` output: {out:?}").into())
+
+    unsafe extern "C" {
+        #[cfg_attr(target_os = "netbsd", link_name = "__localtime_r50")]
+        fn localtime_r(time: *const TimeT, result: *mut Tm) -> *mut Tm;
+    }
+
+    pub(super) fn local_offset_at(dt: DateTime) -> Option<i32> {
+        #[allow(
+            clippy::useless_conversion,
+            reason = "`TimeT` is `i64` on some targets"
+        )]
+        let time = TimeT::try_from(dt.unix).ok()?;
+        let mut tm = MaybeUninit::<Tm>::uninit();
+        // SAFETY: `time` and `tm` are valid for reads and writes, and `Tm` covers the platform's
+        // `struct tm`. `localtime_r` returns null on failure.
+        if unsafe { localtime_r(&time, tm.as_mut_ptr()) }.is_null() {
+            return None;
+        }
+        // SAFETY: `localtime_r` succeeded, so it initialized `tm`.
+        let tm = unsafe { tm.assume_init() };
+        #[allow(
+            clippy::useless_conversion,
+            reason = "`c_long` is `i32` on some targets"
+        )]
+        i32::try_from(tm.tm_gmtoff).ok()
+    }
 }
 
-#[cfg(not(unix))]
-fn local_offset() -> Result<i32> {
-    Err("the local UTC offset is only available on Unix".into())
+/// Compares a UTC `SYSTEMTIME` with its conversion to the current time zone, as `time` does.
+#[cfg(windows)]
+mod sys {
+    use super::DateTime;
+    use std::{ffi::c_void, mem::MaybeUninit};
+
+    #[repr(C)]
+    struct FileTime {
+        low: u32,
+        high: u32,
+    }
+
+    #[repr(C)]
+    struct SystemTime {
+        year: u16,
+        month: u16,
+        day_of_week: u16,
+        day: u16,
+        hour: u16,
+        minute: u16,
+        second: u16,
+        milliseconds: u16,
+    }
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SystemTimeToFileTime(system_time: *const SystemTime, file_time: *mut FileTime) -> i32;
+        fn SystemTimeToTzSpecificLocalTime(
+            time_zone: *const c_void,
+            universal_time: *const SystemTime,
+            local_time: *mut SystemTime,
+        ) -> i32;
+    }
+
+    /// Whole seconds since 1601-01-01.
+    fn secs(system_time: &SystemTime) -> Option<i64> {
+        let mut ft = MaybeUninit::<FileTime>::uninit();
+        // SAFETY: Both pointers are valid, and the call returns zero on failure.
+        if unsafe { SystemTimeToFileTime(system_time, ft.as_mut_ptr()) } == 0 {
+            return None;
+        }
+        // SAFETY: The call succeeded, so it initialized `ft`.
+        let ft = unsafe { ft.assume_init() };
+        Some(((u64::from(ft.high) << 32 | u64::from(ft.low)) / 10_000_000) as i64)
+    }
+
+    pub(super) fn local_offset_at(dt: DateTime) -> Option<i32> {
+        let (year, month, day, sod) = DateTime { offset: 0, ..dt }.civil();
+        let utc = SystemTime {
+            year: year as u16,
+            month: month as u16,
+            day_of_week: 0,
+            day: day as u16,
+            hour: (sod / 3600) as u16,
+            minute: (sod / 60 % 60) as u16,
+            second: (sod % 60) as u16,
+            milliseconds: (dt.nanos / 1_000_000) as u16,
+        };
+        let mut local = MaybeUninit::<SystemTime>::uninit();
+        // SAFETY: A null time zone selects the current one, the other pointers are valid, and the
+        // call returns zero on failure.
+        if unsafe { SystemTimeToTzSpecificLocalTime(std::ptr::null(), &utc, local.as_mut_ptr()) }
+            == 0
+        {
+            return None;
+        }
+        // SAFETY: The call succeeded, so it initialized `local`.
+        let local = unsafe { local.assume_init() };
+        i32::try_from(secs(&local)? - secs(&utc)?).ok()
+    }
+}
+
+#[cfg(not(any(
+    windows,
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "dragonfly",
+)))]
+mod sys {
+    pub(super) fn local_offset_at(_: super::DateTime) -> Option<i32> {
+        None
+    }
 }
 
 const fn is_leap_year(y: i64) -> bool {

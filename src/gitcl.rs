@@ -14,6 +14,7 @@ use crate::{
         GIT_COMMIT_DATE_NAME, GIT_COMMIT_MESSAGE, GIT_COMMIT_TIMESTAMP_NAME,
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
+    datetime::DateTime,
 };
 use crate::{Error, Result};
 use std::{
@@ -23,13 +24,6 @@ use std::{
 };
 #[cfg(feature = "allow_remote")]
 use std::{env::temp_dir, fs::create_dir_all};
-use time::{
-    OffsetDateTime, UtcOffset,
-    format_description::{
-        self,
-        well_known::{Iso8601, Rfc3339},
-    },
-};
 
 // This funkiness allows the command to be output in the docs
 macro_rules! branch_cmd {
@@ -990,18 +984,13 @@ impl Gitcl {
                 }
             } else {
                 if self.commit_date && !date_override {
-                    let format = format_description::parse_borrowed::<1>("[year]-[month]-[day]")?;
-                    add_map_entry(
-                        VergenKey::GitCommitDate,
-                        ts.format(&format)?,
-                        cargo_rustc_env,
-                    );
+                    add_map_entry(VergenKey::GitCommitDate, ts.format_date(), cargo_rustc_env);
                 }
 
                 if self.commit_timestamp && !timestamp_override {
                     add_map_entry(
                         VergenKey::GitCommitTimestamp,
-                        ts.format(&Iso8601::DEFAULT)?,
+                        ts.format_iso8601()?,
                         cargo_rustc_env,
                     );
                 }
@@ -1047,12 +1036,10 @@ impl Gitcl {
     }
 
     // this in not included in coverage, because on *nix the local offset is always unsafe
-    fn compute_local_offset(&self, stdout: &str) -> Result<OffsetDateTime> {
-        let no_offset = OffsetDateTime::parse(stdout, &Rfc3339)?;
+    fn compute_local_offset(&self, stdout: &str) -> Result<DateTime> {
+        let no_offset = DateTime::parse_rfc3339(stdout)?;
         if self.use_local {
-            let local = UtcOffset::local_offset_at(no_offset)?;
-            let local_offset = no_offset.checked_to_offset(local).unwrap_or(no_offset);
-            Ok(local_offset)
+            no_offset.to_local()
         } else {
             Ok(no_offset)
         }

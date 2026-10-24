@@ -334,7 +334,12 @@ mod utils;
 mod build;
 #[cfg(feature = "cargo")]
 mod cargo;
-#[cfg(feature = "build")]
+#[cfg(any(
+    feature = "build",
+    feature = "gitcl",
+    feature = "git2",
+    feature = "gix"
+))]
 mod datetime;
 #[cfg(feature = "git2")]
 mod git2;
