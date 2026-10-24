@@ -15,8 +15,7 @@ use crate::{
     },
 };
 use crate::{Error, Result};
-use rustc_version::{Channel, VersionMeta, version_meta};
-use std::env;
+use std::{collections::BTreeMap, env, ffi::OsString, process::Command};
 
 /// The `VERGEN_RUSTC_*` configuration features
 ///
@@ -151,7 +150,8 @@ impl Rustc {
             host_triple: true,
             llvm_version: true,
             semver: true,
-            ..Self::default()
+            #[cfg(test)]
+            str_to_test: None,
         })
     }
 
@@ -179,8 +179,6 @@ impl Rustc {
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
-        use rustc_version::version_meta_for;
-
         let vm = if let Some(rustc_str) = self.str_to_test {
             version_meta_for(rustc_str)
         } else {
@@ -192,7 +190,7 @@ impl Rustc {
     #[allow(clippy::too_many_lines)]
     fn add_rustc_to_map(
         self,
-        rustc_res: std::result::Result<VersionMeta, rustc_version::Error>,
+        rustc_res: Result<VersionMeta>,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
@@ -207,13 +205,7 @@ impl Rustc {
                     cargo_warning,
                 );
             } else {
-                let channel = match rustc.channel {
-                    Channel::Dev => "dev",
-                    Channel::Nightly => "nightly",
-                    Channel::Beta => "beta",
-                    Channel::Stable => "stable",
-                };
-                add_map_entry(VergenKey::RustcChannel, channel, cargo_rustc_env);
+                add_map_entry(VergenKey::RustcChannel, rustc.channel, cargo_rustc_env);
             }
         }
 
@@ -279,11 +271,7 @@ impl Rustc {
                     cargo_warning,
                 );
             } else if let Some(llvm_version) = rustc.llvm_version {
-                add_map_entry(
-                    VergenKey::RustcLlvmVersion,
-                    format!("{llvm_version}"),
-                    cargo_rustc_env,
-                );
+                add_map_entry(VergenKey::RustcLlvmVersion, llvm_version, cargo_rustc_env);
             } else {
                 add_default_map_entry(
                     false,
@@ -303,11 +291,7 @@ impl Rustc {
                     cargo_warning,
                 );
             } else {
-                add_map_entry(
-                    VergenKey::RustcSemver,
-                    format!("{}", rustc.semver),
-                    cargo_rustc_env,
-                );
+                add_map_entry(VergenKey::RustcSemver, rustc.semver, cargo_rustc_env);
             }
         }
 
@@ -319,6 +303,150 @@ impl Rustc {
         self.str_to_test = Some(rustc_str);
         self
     }
+}
+
+/// The parts of `rustc -vV` output that [`Rustc`] emits.
+struct VersionMeta {
+    semver: String,
+    channel: &'static str,
+    commit_hash: Option<String>,
+    commit_date: Option<String>,
+    host: String,
+    llvm_version: Option<String>,
+}
+
+/// Runs `$RUSTC -vV` (through `$RUSTC_WRAPPER` when set) and parses its output.
+fn version_meta() -> Result<VersionMeta> {
+    let rustc = env::var_os("RUSTC").unwrap_or_else(|| OsString::from("rustc"));
+    let mut cmd = if let Some(wrapper) = env::var_os("RUSTC_WRAPPER").filter(|w| !w.is_empty()) {
+        let mut cmd = Command::new(wrapper);
+        let _ = cmd.arg(rustc);
+        cmd
+    } else {
+        Command::new(rustc)
+    };
+    let out = cmd
+        .arg("-vV")
+        .output()
+        .map_err(|e| format!("could not execute command: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "error from command -- stderr:\n\n{}\n\nstdout:\n\n{}",
+            String::from_utf8_lossy(&out.stderr),
+            String::from_utf8_lossy(&out.stdout),
+        )
+        .into());
+    }
+    let stdout =
+        String::from_utf8(out.stdout).map_err(|_| "invalid UTF-8 output from `rustc -vV`")?;
+    version_meta_for(&stdout)
+}
+
+/// Parses `rustc -vV` output.
+fn version_meta_for(verbose_version_string: &str) -> Result<VersionMeta> {
+    let mut map = BTreeMap::new();
+    for line in verbose_version_string.lines().skip(1) {
+        if let Some((key, value)) = line.split_once(": ") {
+            let _ = map.insert(key, value);
+        }
+    }
+    let expect_key = |key| map.get(key).copied().ok_or("unexpected `rustc -vV` format");
+    let expect_key_or_unknown =
+        |key| expect_key(key).map(|v| (v != "unknown").then(|| v.to_string()));
+
+    let host = expect_key("host")?.to_string();
+    let semver = expect_key("release")?;
+    let pre = parse_semver(semver)?;
+    let channel = match pre.split('.').next().unwrap_or_default() {
+        "" => "stable",
+        "dev" => "dev",
+        "beta" => "beta",
+        "nightly" => "nightly",
+        x => return Err(format!("unknown pre-release tag: {x}").into()),
+    };
+    let commit_hash = expect_key_or_unknown("commit-hash")?;
+    let commit_date = expect_key_or_unknown("commit-date")?;
+    let llvm_version = map
+        .get("LLVM version")
+        .map(|v| parse_llvm_version(v))
+        .transpose()?;
+
+    Ok(VersionMeta {
+        semver: semver.to_string(),
+        channel,
+        commit_hash,
+        commit_date,
+        host,
+        llvm_version,
+    })
+}
+
+/// Validates a SemVer version and returns its pre-release part.
+fn parse_semver(version: &str) -> Result<&str> {
+    let invalid = || format!("error parsing version: invalid semver `{version}`");
+    let (version_pre, build) = version
+        .split_once('+')
+        .map_or((version, None), |(v, b)| (v, Some(b)));
+    let (core, pre) = version_pre.split_once('-').unwrap_or((version_pre, ""));
+    let numeric = |part: &str| {
+        !part.is_empty()
+            && part.bytes().all(|b| b.is_ascii_digit())
+            && (part == "0" || !part.starts_with('0'))
+    };
+    let identifiers = |part: &str, check_numeric: bool| {
+        part.split('.').all(|id| {
+            !id.is_empty()
+                && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                && (!check_numeric || !id.bytes().all(|b| b.is_ascii_digit()) || numeric(id))
+        })
+    };
+    let mut parts = core.split('.');
+    let valid = (0..3).all(|_| parts.next().is_some_and(numeric))
+        && parts.next().is_none()
+        && (pre.is_empty() && !version_pre.ends_with('-') || identifiers(pre, true))
+        && build.is_none_or(|b| identifiers(b, false));
+    if valid {
+        Ok(pre)
+    } else {
+        Err(invalid().into())
+    }
+}
+
+/// Parses LLVM's version the way `rustc_version` does and formats it as `major.minor`.
+fn parse_llvm_version(version: &str) -> Result<String> {
+    let mut parts = version.split('.').map(|part| -> Result<u64> {
+        if part == "0" {
+            Ok(0)
+        } else if part.starts_with('0') {
+            Err(
+                "error parsing LLVM's version: a version component must not have leading zeros"
+                    .into(),
+            )
+        } else if part.starts_with('-') || part.starts_with('+') {
+            Err("error parsing LLVM's version: a version component must not have a sign".into())
+        } else {
+            part.parse().map_err(|e| {
+                format!("error parsing LLVM's version: error parsing LLVM version component: {e}")
+                    .into()
+            })
+        }
+    });
+    let major = parts.next().unwrap_or(Ok(0))?;
+    let minor = match parts.next() {
+        Some(part) => part?,
+        None if major < 4 => {
+            return Err("error parsing LLVM's version: LLVM's minor version component is required for versions less than 4.0".into());
+        }
+        None => 0,
+    };
+    // Like `rustc_version`, validate but ignore a patch component.
+    if let Some(Err(e)) = parts.next() {
+        return Err(e);
+    }
+    if parts.next().is_some() {
+        return Err("error parsing LLVM's version: too many version components".into());
+    }
+    Ok(format!("{major}.{minor}"))
 }
 
 impl AddEntries for Rustc {
