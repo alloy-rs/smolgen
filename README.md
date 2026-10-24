@@ -54,6 +54,7 @@ fn main() {
 - `smolgen::Error` replaces `anyhow::Error`. It converts into `Box<dyn std::error::Error>`; with
   `anyhow`, use `.map_err(|e| anyhow::Error::from_boxed(e.into()))`.
 - Builders only have `maybe_*` setters for `Option` fields.
+- Errors that came from `time` and `rustc_version` have different messages.
 - The minimum supported Rust version is 1.88, except for features whose optional dependencies
   need a newer compiler (`si` needs 1.95 through `sysinfo`).
 - `use_local` works on Linux, Android, macOS, iOS, the BSDs and Windows.
