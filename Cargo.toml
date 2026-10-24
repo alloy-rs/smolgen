@@ -17,7 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = []
-allow_remote = ["gix?/blocking-http-transport-reqwest-rust-tls"]
+allow_remote = ["gix?/blocking-http-transport-reqwest-rust-tls", "git2-rs?/https"]
 build = []
 cargo = []
 cargo_metadata = ["dep:cargo_metadata", "dep:regex", "cargo"]
