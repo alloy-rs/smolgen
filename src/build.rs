@@ -10,15 +10,12 @@ use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
     constants::{BUILD_DATE_NAME, BUILD_TIMESTAMP_NAME, BUILD_TIMESTAMP_UNIX_NAME},
+    datetime::DateTime,
 };
 use crate::{Error, Result};
 use std::{
     env::{self, VarError},
     str::FromStr,
-};
-use time::{
-    OffsetDateTime,
-    format_description::{self, well_known::Iso8601},
 };
 
 /// The `VERGEN_BUILD_*` configuration features
@@ -205,21 +202,18 @@ impl Build {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         let (sde, ts) = match env::var("SOURCE_DATE_EPOCH") {
-            Ok(v) => (
-                true,
-                OffsetDateTime::from_unix_timestamp(i64::from_str(&v)?)?,
-            ),
+            Ok(v) => (true, DateTime::from_unix_timestamp(i64::from_str(&v)?)?),
             Err(VarError::NotPresent) => {
                 if self.use_local {
-                    (false, OffsetDateTime::now_local()?)
+                    (false, DateTime::now_utc().to_local()?)
                 } else {
-                    (false, OffsetDateTime::now_utc())
+                    (false, DateTime::now_utc())
                 }
             }
             Err(e) => return Err(e.into()),
         };
 
-        self.add_date_entry(idempotent, sde, &ts, cargo_rustc_env, cargo_warning)?;
+        self.add_date_entry(idempotent, sde, &ts, cargo_rustc_env, cargo_warning);
         self.add_timestamp_entry(idempotent, sde, &ts, cargo_rustc_env, cargo_warning)?;
         self.add_timestamp_unix_entry(idempotent, sde, &ts, cargo_rustc_env, cargo_warning);
         Ok(())
@@ -229,10 +223,10 @@ impl Build {
         self,
         idempotent: bool,
         source_date_epoch: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
-    ) -> Result<()> {
+    ) {
         if self.build_date {
             if let Ok(value) = env::var(BUILD_DATE_NAME) {
                 add_map_entry(VergenKey::BuildDate, value, cargo_rustc_env);
@@ -244,18 +238,16 @@ impl Build {
                     cargo_warning,
                 );
             } else {
-                let format = format_description::parse_borrowed::<1>("[year]-[month]-[day]")?;
-                add_map_entry(VergenKey::BuildDate, ts.format(&format)?, cargo_rustc_env);
+                add_map_entry(VergenKey::BuildDate, ts.format_date(), cargo_rustc_env);
             }
         }
-        Ok(())
     }
 
     fn add_timestamp_entry(
         self,
         idempotent: bool,
         source_date_epoch: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
@@ -272,7 +264,7 @@ impl Build {
             } else {
                 add_map_entry(
                     VergenKey::BuildTimestamp,
-                    ts.format(&Iso8601::DEFAULT)?,
+                    ts.format_iso8601()?,
                     cargo_rustc_env,
                 );
             }
@@ -284,7 +276,7 @@ impl Build {
         self,
         idempotent: bool,
         source_date_epoch: bool,
-        ts: &OffsetDateTime,
+        ts: &DateTime,
         cargo_rustc_env: &mut CargoRustcEnvMap,
         cargo_warning: &mut CargoWarning,
     ) {
