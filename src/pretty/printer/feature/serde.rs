@@ -64,11 +64,11 @@ impl Serialize for VarsTuple {
 
 #[cfg(test)]
 mod test {
+    use crate::Result;
     use crate::{
         pretty::{Prefix, Pretty, Suffix, utils::test_utils::TEST_PREFIX_SUFFIX},
         vergen_pretty_env,
     };
-    use anyhow::Result;
 
     const VARS: &str = r#"vars":{"#;
     const PREFIX: &str = r#""prefix":{"lines":["#;

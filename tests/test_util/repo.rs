@@ -1,4 +1,4 @@
-use anyhow::Result;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use git::{
     Id, ObjectId,
     clone::PrepareFetch,

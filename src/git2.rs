@@ -16,9 +16,7 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
 };
-#[cfg(test)]
-use anyhow::anyhow;
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use bon::Builder;
 use git2_rs::{
     BranchType, Commit, DescribeFormatOptions, DescribeOptions, Reference, Repository,
@@ -56,7 +54,7 @@ use {
 /// # Example
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Git2};
 /// #
 /// # fn main() -> Result<()> {
@@ -69,7 +67,7 @@ use {
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Git2};
 /// #
 /// # fn main() -> Result<()> {
@@ -326,7 +324,7 @@ impl Git2 {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if self.fail {
-            return Err(anyhow!("failed to create entries"));
+            return Err(Error::from("failed to create entries"));
         }
         self.inner_add_entries(
             idempotent,
@@ -412,10 +410,10 @@ impl Git2 {
             ));
             Ok(repo)
         } else {
-            Err(anyhow::anyhow!(
+            Err(Error::from(format!(
                 "Could not find a git repository at '{}'",
                 repo_dir.display()
-            ))
+            )))
         }
     }
 
@@ -914,7 +912,7 @@ impl AddEntries for Git2 {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous warnings.  This should be it.
@@ -1032,11 +1030,11 @@ impl AddEntries for Git2 {
 mod test {
     use super::Git2;
     use crate::Emitter;
+    use crate::Result;
     #[cfg(unix)]
     use crate::test_util::TEST_MTIME;
     use crate::test_util::TestRepos;
     use crate::{VergenKey, count_idempotent};
-    use anyhow::Result;
     use git2_rs::Repository;
     use serial_test::serial;
     #[cfg(unix)]

@@ -12,7 +12,7 @@ use crate::{
     add_default_map_entry, add_map_entry,
     constants::{BUILD_DATE_NAME, BUILD_TIMESTAMP_NAME, BUILD_TIMESTAMP_UNIX_NAME},
 };
-use anyhow::{Context, Error, Result};
+use crate::{Error, Result};
 use bon::Builder;
 use std::{
     env::{self, VarError},
@@ -34,7 +34,7 @@ use time::{
 /// Emit all of the build instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Build;
 /// #
@@ -48,7 +48,7 @@ use time::{
 /// Emit some of the build instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Build;
 /// #
@@ -62,7 +62,7 @@ use time::{
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Build;
@@ -86,7 +86,7 @@ use time::{
 /// last modification time of the source/package
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Build;
@@ -119,7 +119,7 @@ use time::{
 /// deterministic.
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Build;
 /// #
@@ -322,7 +322,7 @@ impl AddEntries for Build {
     ) -> Result<()> {
         if self.any() {
             self.add_timestamp_entries(idempotent, cargo_rustc_env, cargo_warning)
-                .with_context(|| "Error adding build timestamp entries")?;
+                .map_err(|e| format!("Error adding build timestamp entries: {e}"))?;
         }
         Ok(())
     }
@@ -335,7 +335,7 @@ impl AddEntries for Build {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{:?}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             if self.build_date {
@@ -371,8 +371,8 @@ impl AddEntries for Build {
 mod test {
     use super::Build;
     use crate::Emitter;
+    use crate::Result;
     use crate::{CustomInsGen, count_idempotent};
-    use anyhow::Result;
     use serial_test::serial;
     use std::io::Write;
 

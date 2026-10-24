@@ -5,10 +5,10 @@ mod test_util;
 mod test_git_git2 {
     use std::sync::LazyLock;
 
-    use anyhow::Result;
     use git2_rs::Repository;
     use regex::Regex;
     use serial_test::serial;
+    use smolgen::Result;
     use smolgen::{Emitter, Git2};
     use std::env::{current_dir, temp_dir};
     use temp_env::with_var;
@@ -371,8 +371,8 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
 
     mod git_dirty {
         use crate::test_util::TestRepos;
-        use anyhow::Result;
         use serial_test::serial;
+        use smolgen::Result;
         use smolgen::{Emitter, Git2};
 
         const GIT_DIRTY_TRUE_OUTPUT: &str = r"cargo:rustc-env=VERGEN_GIT_DIRTY=true";

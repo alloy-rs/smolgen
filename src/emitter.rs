@@ -6,8 +6,8 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+use crate::Result;
 use crate::{AddCustomEntries, AddEntries, CargoRustcEnvMap, DefaultConfig};
-use anyhow::Result;
 use std::{
     collections::BTreeMap,
     env,
@@ -107,7 +107,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use smolgen::Emitter;
     /// #
     /// # fn main() -> Result<()> {
@@ -150,7 +150,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use smolgen::Emitter;
     /// #
     /// # fn main() -> Result<()> {
@@ -192,7 +192,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use smolgen::Emitter;
     /// #
     /// # fn main() -> Result<()> {
@@ -212,7 +212,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use smolgen::Emitter;
     /// #
     /// # fn main() -> Result<()> {
@@ -234,7 +234,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use smolgen::Emitter;
     /// #
     /// # fn main() -> Result<()> {
@@ -389,7 +389,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use std::env;
     /// # use smolgen::Emitter;
     /// #
@@ -461,7 +461,7 @@ impl Emitter {
     /// # Example
     ///
     /// ```
-    /// # use anyhow::Result;
+    /// # use smolgen::Result;
     /// # use std::env;
     /// # use smolgen::Emitter;
     /// #
@@ -510,7 +510,7 @@ impl Emitter {
 #[cfg(test)]
 pub(crate) mod test {
     use super::Emitter;
-    use anyhow::Result;
+    use crate::Result;
     use serial_test::serial;
     use std::io::Write;
 

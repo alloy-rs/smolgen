@@ -6,8 +6,8 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+use crate::Result;
 use crate::pretty::{Prefix, Suffix, printer::Pretty};
-use anyhow::Result;
 use console::Style;
 use std::{io::Write, sync::LazyLock};
 
@@ -70,12 +70,12 @@ impl Suffix {
 
 #[cfg(test)]
 mod test {
+    use crate::Result;
     use crate::pretty::{
         Prefix, Pretty, Suffix,
         utils::test_utils::{TEST_PREFIX_SUFFIX, is_empty},
         vergen_pretty_env,
     };
-    use anyhow::Result;
     use console::Style;
 
     #[test]

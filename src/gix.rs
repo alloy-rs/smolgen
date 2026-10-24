@@ -16,7 +16,7 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
 };
-use anyhow::{Error, Result, anyhow};
+use crate::{Error, Result};
 use bon::Builder;
 use gix::{
     Commit, Head, Id, Repository,
@@ -56,7 +56,7 @@ use {
 /// # Example
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Gix};
 /// #
 /// # fn main() -> Result<()> {
@@ -69,7 +69,7 @@ use {
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::{Emitter, Gix};
 /// #
@@ -374,10 +374,10 @@ impl Gix {
             ));
             Ok(repo)
         } else {
-            Err(anyhow!(
+            Err(Error::from(format!(
                 "Could not find a git repository at '{}'",
                 repo_dir.display()
-            ))
+            )))
         }
     }
 
@@ -594,8 +594,10 @@ impl Gix {
 
     fn get_commit<'a>(repo: &Repository, head: &mut Head<'a>) -> Result<Commit<'a>> {
         Ok(if repo.is_shallow() {
-            let id = Self::get_id(head)?.ok_or_else(|| anyhow!("Not an Id"))?;
-            let object = id.try_object()?.ok_or_else(|| anyhow!("Not an Object"))?;
+            let id = Self::get_id(head)?.ok_or_else(|| Error::from("Not an Id"))?;
+            let object = id
+                .try_object()?
+                .ok_or_else(|| Error::from("Not an Object"))?;
             object.try_into_commit()?
         } else {
             head.peel_to_commit()?
@@ -809,7 +811,7 @@ impl AddEntries for Gix {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous cargo_warning.  This should be it.
@@ -927,11 +929,11 @@ impl AddEntries for Gix {
 mod test {
     use super::Gix;
     use crate::Emitter;
+    use crate::Result;
     use crate::count_idempotent;
     #[cfg(unix)]
     use crate::test_util::TEST_MTIME;
     use crate::test_util::TestRepos;
-    use anyhow::Result;
     use serial_test::serial;
     #[cfg(unix)]
     use std::io::stdout;

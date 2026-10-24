@@ -1,6 +1,6 @@
 use crate::VergenKey;
 
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use std::collections::BTreeMap;
 
 /// The map used to emit `cargo:rustc-env=NAME=VALUE` cargo instructions
@@ -60,7 +60,7 @@ pub trait Add {
     /// # Errors
     ///
     /// If an error occurs, the `vergen` emitter will use `add_default_entries` to generate output.
-    /// This assumes generating instructions may fail in some manner so a [`anyhow::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
     ///
     fn add_map_entries(
         &self,
@@ -78,7 +78,7 @@ pub trait Add {
     ///
     /// # Errors
     ///
-    /// This assumes generating instructions may fail in some manner so a [`anyhow::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
     ///
     fn add_default_entries(
         &self,
@@ -93,7 +93,7 @@ pub trait Add {
 ///
 /// # Example
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::collections::BTreeMap;
 /// # use smolgen::{AddCustomEntries, CargoRerunIfChanged, CargoWarning, DefaultConfig};
 /// #[derive(Default)]
@@ -150,7 +150,7 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
     /// # Errors
     ///
     /// If an error occurs, the `vergen` emitter will use `add_default_entries` to generate output.
-    /// This assumes generating instructions may fail in some manner so a [`anyhow::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
     ///
     fn add_calculated_entries(
         &self,
@@ -168,7 +168,7 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
     ///
     /// # Errors
     ///
-    /// This assumes generating instructions may fail in some manner so a [`anyhow::Result`] is returned.
+    /// This assumes generating instructions may fail in some manner so a [`smolgen::Result`] is returned.
     ///
     fn add_default_entries(
         &self,
@@ -182,7 +182,7 @@ pub trait AddCustom<K: Into<String> + Ord, V: Into<String>> {
 #[doc(hidden)]
 pub(crate) mod test_gen {
     use crate::{AddCustomEntries, CargoRerunIfChanged, CargoWarning};
-    use anyhow::{Result, anyhow};
+    use crate::{Error, Result};
     use bon::Builder;
     use std::collections::BTreeMap;
 
@@ -202,7 +202,7 @@ pub(crate) mod test_gen {
             _cargo_warning: &mut CargoWarning,
         ) -> Result<()> {
             if self.fail {
-                Err(anyhow!("We have failed"))
+                Err(Error::from("We have failed"))
             } else {
                 if idempotent {
                     let _ = cargo_rustc_env_map.insert("test", "VERGEN_IDEMPOTENT_OUTPUT");
@@ -221,7 +221,7 @@ pub(crate) mod test_gen {
             _cargo_warning: &mut CargoWarning,
         ) -> Result<()> {
             if *config.fail_on_error() {
-                let error = anyhow!(format!("{}", config.error()));
+                let error = Error::from(format!("{}", config.error()));
                 Err(error)
             } else {
                 let _ = cargo_rustc_env_map.insert("test", "VERGEN_IDEMPOTENT_OUTPUT");
@@ -234,12 +234,12 @@ pub(crate) mod test_gen {
 #[cfg(test)]
 mod test {
     use super::DefaultConfig;
-    use anyhow::{Result, anyhow};
+    use crate::{Error, Result};
     use std::io::Write;
 
     #[test]
     fn default_config_debug() -> Result<()> {
-        let config = DefaultConfig::new(true, true, anyhow!("blah"));
+        let config = DefaultConfig::new(true, true, Error::from("blah"));
         let mut buf = vec![];
         write!(buf, "{config:?}")?;
         assert_ne!(buf.len(), 0);

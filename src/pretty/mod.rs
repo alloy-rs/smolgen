@@ -15,7 +15,7 @@
 //!
 //! # Example
 //! ```
-//! # use anyhow::Result;
+//! # use smolgen::Result;
 //! # use std::{collections::BTreeMap, io::Write};
 //! # use smolgen::pretty::{vergen_pretty_env, Pretty};
 //! # fn has_value(
@@ -57,7 +57,7 @@ with the associated [`Config`] as a convenience wrapper around [`Pretty`].
 
 # Example
 ```
-# use anyhow::Result;
+# use smolgen::Result;
 # use smolgen::pretty::{Config, header, vergen_pretty_env};"
 )]
 #![cfg_attr(feature = "color", doc = r"# use smolgen::pretty::Style;")]
@@ -135,7 +135,7 @@ pub use crate::vergen_pretty_env;
 ///
 /// # Example
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::{collections::BTreeMap, io::Write};
 /// # use smolgen::pretty::{vergen_pretty_env, Pretty};
 /// #

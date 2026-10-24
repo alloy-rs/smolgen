@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use anyhow::Result;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use temp_env::with_vars;
 
 static DEFAULT_KVS: LazyLock<Vec<(&'static str, Option<&'static str>)>> = LazyLock::new(|| {

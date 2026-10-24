@@ -262,7 +262,7 @@ pub(crate) mod vergen_key {
 ))]
 mod test {
     use super::vergen_key::VergenKey;
-    use anyhow::Result;
+    use crate::Result;
     use std::{
         cmp::Ordering,
         collections::hash_map::DefaultHasher,
@@ -321,7 +321,7 @@ mod test {
 #[cfg(all(test, all(feature = "build", feature = "cargo")))]
 mod test {
     use super::vergen_key::VergenKey;
-    use anyhow::Result;
+    use crate::Result;
     use std::{
         cmp::Ordering,
         collections::hash_map::DefaultHasher,

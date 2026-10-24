@@ -10,7 +10,7 @@
 
 use crate::pretty::{Prefix, Pretty, Suffix};
 
-use anyhow::Result;
+use crate::Result;
 use bon::Builder;
 use console::Style;
 #[cfg(feature = "color")]
@@ -38,7 +38,7 @@ pub type Env = BTreeMap<&'static str, Option<&'static str>>;
 ///
 /// # Example
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::pretty::{Config, header, vergen_pretty_env};
 #[cfg_attr(feature = "color", doc = r"use smolgen::pretty::Style;")]
 /// #
@@ -79,7 +79,7 @@ pub struct Config {
 ///
 /// # Example
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::pretty::{Config, header, vergen_pretty_env};
 /// #
 /// # pub fn main() -> Result<()> {
@@ -242,7 +242,7 @@ mod test {
         feature = "si"
     ))]
     use super::header;
-    use anyhow::Result;
+    use crate::Result;
     #[cfg(feature = "color")]
     use console::Style;
     #[cfg(all(

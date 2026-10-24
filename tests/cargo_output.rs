@@ -24,8 +24,9 @@ mod test_cargo {
     static CARGO_DEP_RE_STR: LazyLock<&'static str> =
         LazyLock::new(|| r"cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=.*");
     #[cfg(feature = "cargo_metadata")]
-    static CARGO_DEP_NAME_RE_STR: LazyLock<&'static str> =
-        LazyLock::new(|| r"(?m)^cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=anyhow 1\.0\.[0-9]{2,}$");
+    static CARGO_DEP_NAME_RE_STR: LazyLock<&'static str> = LazyLock::new(
+        || r"(?m)^cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=serial_test [0-9]+\.[0-9]+\.[0-9]+$",
+    );
     #[cfg(feature = "cargo_metadata")]
     static CARGO_DEP_DK_RE_STR: LazyLock<&'static str> = LazyLock::new(
         || r"(?m)^cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES=regex 1\.[0-9]{1,}\.[0-9]{1,}$",
@@ -116,7 +117,9 @@ mod test_cargo {
     fn cargo_all_name_filter_some_output() {
         let result = with_cargo_vars(|| {
             let mut stdout_buf = vec![];
-            let cargo = Cargo::all_cargo_builder().name_filter("anyhow").build();
+            let cargo = Cargo::all_cargo_builder()
+                .name_filter("serial_test")
+                .build();
             Emitter::default()
                 .add_instructions(&cargo)?
                 .emit_to(&mut stdout_buf)?;

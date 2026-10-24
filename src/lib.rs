@@ -63,7 +63,7 @@
 //! #### Generate all output
 //!
 //! ```
-//! # use anyhow::Result;
+//! # use smolgen::Result;
 //! # use smolgen::Emitter;
 #![cfg_attr(feature = "build", doc = r"# use smolgen::Build;")]
 #![cfg_attr(feature = "cargo", doc = r"# use smolgen::Cargo;")]
@@ -152,7 +152,7 @@
 //! #### Generate specific output
 //!
 //! ```
-//! # use anyhow::Result;
+//! # use smolgen::Result;
 //! # use smolgen::Emitter;
 #![cfg_attr(feature = "build", doc = r"# use smolgen::Build;")]
 #![cfg_attr(feature = "cargo", doc = r"# use smolgen::Cargo;")]
@@ -277,6 +277,12 @@
 //! [build scripts]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#outputs-of-the-build-script
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
+
+/// The error type used by `smolgen`. Any [`std::error::Error`] converts into it with `?`.
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+
+/// A [`Result`](core::result::Result) that defaults to [`Error`].
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 mod config;
 pub mod constants;

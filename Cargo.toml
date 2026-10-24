@@ -36,7 +36,6 @@ serde = ["pretty", "dep:serde"]
 trace = ["pretty", "dep:tracing"]
 
 [dependencies]
-anyhow = "1.0.104"
 bon = "3.9.3"
 cargo_metadata = { version = "0.23.1", optional = true }
 console = { version = "0.16.4", optional = true }

@@ -6,11 +6,11 @@ mod test_git_gix {
     use std::sync::LazyLock;
 
     use crate::test_util::TestRepos;
-    use anyhow::Result;
     use regex::Regex;
     use serial_test::serial;
     use smolgen::Emitter;
     use smolgen::Gix;
+    use smolgen::Result;
     use std::env::{self, temp_dir};
     use temp_env::with_var;
 
@@ -389,8 +389,8 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
 
     mod git_dirty {
         use crate::test_util::TestRepos;
-        use anyhow::Result;
         use serial_test::serial;
+        use smolgen::Result;
         use smolgen::{Emitter, Gix};
 
         const GIT_DIRTY_TRUE_OUTPUT: &str = r"cargo:rustc-env=VERGEN_GIT_DIRTY=true";

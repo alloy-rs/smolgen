@@ -16,7 +16,7 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
 };
-use anyhow::{Error, Result, anyhow};
+use crate::{Error, Result};
 use bon::Builder;
 use std::{
     env,
@@ -113,7 +113,7 @@ const DIRTY: &str = dirty!();
 /// Emit all of the git instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Gitcl};
 /// #
 /// # fn main() -> Result<()> {
@@ -126,7 +126,7 @@ const DIRTY: &str = dirty!();
 /// Emit some of the git instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Gitcl};
 /// #
 /// # fn main() -> Result<()> {
@@ -139,7 +139,7 @@ const DIRTY: &str = dirty!();
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Gitcl};
 /// #
 /// # fn main() -> Result<()> {
@@ -165,7 +165,7 @@ const DIRTY: &str = dirty!();
 ///
 /// # Example
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::{Emitter, Gitcl};
 /// #
 /// # fn main() -> Result<()> {
@@ -431,7 +431,7 @@ impl Gitcl {
         if Self::git_cmd_exists(cmd) {
             Ok(())
         } else {
-            Err(anyhow!("no suitable 'git' command found!"))
+            Err(Error::from("no suitable 'git' command found!"))
         }
     }
 
@@ -439,7 +439,7 @@ impl Gitcl {
         if Self::inside_git_worktree(path) {
             Ok(())
         } else {
-            Err(anyhow!("not within a suitable 'git' worktree!"))
+            Err(Error::from("not within a suitable 'git' worktree!"))
         }
     }
 
@@ -523,7 +523,7 @@ impl Gitcl {
             Ok(output.stdout)
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(anyhow!("Failed to run '{command}'!  {stderr}"))
+            Err(Error::from(format!("Failed to run '{command}'!  {stderr}")))
         }
     }
 
@@ -834,7 +834,7 @@ impl Gitcl {
             let stdout = String::from_utf8_lossy(&output.stdout)
                 .lines()
                 .last()
-                .ok_or_else(|| anyhow!("invalid 'git log' output"))?
+                .ok_or_else(|| Error::from("invalid 'git log' output"))?
                 .trim()
                 .trim_matches('\'')
                 .to_string();
@@ -1008,7 +1008,7 @@ impl Gitcl {
             };
             create_dir_all(&remote_path)?;
             if !self.clone_repo(remote_url, Some(&remote_path)) {
-                return Err(anyhow!("Failed to clone git repository"));
+                return Err(Error::from("Failed to clone git repository"));
             }
             cargo_warning.push(format!(
                 "Using remote repository from '{remote_url}' at '{}'",
@@ -1086,7 +1086,7 @@ impl AddEntries for Gitcl {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous data.  We are re-populating
@@ -1205,11 +1205,11 @@ impl AddEntries for Gitcl {
 mod test {
     use super::Gitcl;
     use crate::Emitter;
+    use crate::Result;
     #[cfg(unix)]
     use crate::test_util::TEST_MTIME;
     use crate::test_util::TestRepos;
     use crate::{VergenKey, count_idempotent};
-    use anyhow::Result;
     use serial_test::serial;
     #[cfg(unix)]
     use std::io::stdout;

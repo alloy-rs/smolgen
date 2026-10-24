@@ -2,10 +2,10 @@
 mod test_build {
     use std::sync::LazyLock;
 
-    use anyhow::Result;
     use regex::Regex;
     use serial_test::serial;
     use smolgen::CustomInsGen;
+    use smolgen::Result;
     use smolgen::{Build, Emitter};
 
     static DATE_RE_STR: LazyLock<&'static str> =

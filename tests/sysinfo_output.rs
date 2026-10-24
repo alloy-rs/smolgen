@@ -2,9 +2,9 @@
 mod test_sysinfo {
     use std::sync::LazyLock;
 
-    use anyhow::Result;
     use regex::Regex;
     use serial_test::serial;
+    use smolgen::Result;
     use smolgen::{Emitter, Sysinfo};
 
     static NAME_RE_STR: LazyLock<&'static str> =

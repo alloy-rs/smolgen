@@ -17,9 +17,7 @@ use crate::{
     add_default_map_entry, add_map_entry,
     constants::{CARGO_DEBUG, CARGO_FEATURES, CARGO_OPT_LEVEL, CARGO_TARGET_TRIPLE},
 };
-#[cfg(feature = "cargo_metadata")]
-use anyhow::anyhow;
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use bon::Builder;
 #[cfg(feature = "cargo_metadata")]
 use cargo_metadata::{DepKindInfo, DependencyKind, MetadataCommand, Package, PackageId};
@@ -44,7 +42,7 @@ use std::env;
 /// Emit all of the cargo instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Cargo;
@@ -68,7 +66,7 @@ use std::env;
 /// Emit some of the cargo instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Cargo;
 /// #
@@ -90,7 +88,7 @@ use std::env;
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Cargo;
@@ -252,13 +250,15 @@ impl Cargo {
         dep_kind_filter: Option<DependencyKind>,
     ) -> Result<String> {
         let metadata = MetadataCommand::new().exec()?;
-        let resolved_crates = metadata.resolve.ok_or_else(|| anyhow!("No resolve"))?;
-        let root_id = resolved_crates.root.ok_or_else(|| anyhow!("No root id"))?;
+        let resolved_crates = metadata.resolve.ok_or_else(|| Error::from("No resolve"))?;
+        let root_id = resolved_crates
+            .root
+            .ok_or_else(|| Error::from("No root id"))?;
         let root = resolved_crates
             .nodes
             .into_iter()
             .find(|node| node.id == root_id)
-            .ok_or_else(|| anyhow!("No root node"))?;
+            .ok_or_else(|| Error::from("No root node"))?;
         let package_ids: Vec<(PackageId, Vec<DepKindInfo>)> = root
             .deps
             .into_iter()
@@ -455,7 +455,7 @@ impl AddEntries for Cargo {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{:?}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             if self.debug {
@@ -500,9 +500,9 @@ impl AddEntries for Cargo {
 mod test {
     use super::Cargo;
     use crate::Emitter;
+    use crate::Result;
     use crate::count_idempotent;
     use crate::test_util::{with_cargo_vars, with_cargo_vars_ext};
-    use anyhow::Result;
     use serial_test::serial;
     use std::io::Write;
 
@@ -637,7 +637,7 @@ mod test {
         let result = with_cargo_vars(|| {
             let cargo = Cargo::builder()
                 .dependencies(true)
-                .name_filter("anyhow")
+                .name_filter("serial_test")
                 .build();
             let config = Emitter::default().add_instructions(&cargo)?.test_emit();
             assert_eq!(1, config.cargo_rustc_env_map().len());

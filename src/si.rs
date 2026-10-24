@@ -15,7 +15,7 @@ use crate::{
         SYSINFO_CPU_VENDOR, SYSINFO_MEMORY, SYSINFO_NAME, SYSINFO_OS_VERSION, SYSINFO_USER,
     },
 };
-use anyhow::{Result, anyhow};
+use crate::{Error, Result};
 use bon::Builder;
 use std::env;
 use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_pid};
@@ -38,7 +38,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// Emit all sysinfo instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Sysinfo;
 /// #
@@ -52,7 +52,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// Emit some of the sysinfo instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Sysinfo;
 /// #
@@ -68,7 +68,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Sysinfo;
@@ -90,7 +90,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// This feature also recognizes the idempotent flag.
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Sysinfo;
 /// #
@@ -105,7 +105,7 @@ use sysinfo::{Cpu, Pid, Process, RefreshKind, System, User, Users, get_current_p
 /// Use `refresh_kind` to minimize the amount of data that [`sysinfo`] refreshes.
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use sysinfo::{CpuRefreshKind, RefreshKind};
 /// # use smolgen::Emitter;
 /// # use smolgen::Sysinfo;
@@ -358,15 +358,15 @@ impl Sysinfo {
     #[cfg(not(test))]
     #[allow(clippy::unused_self)]
     fn get_pid(&self) -> Result<Pid> {
-        get_current_pid().map_err(|e| anyhow!(e.to_string()))
+        get_current_pid().map_err(|e| Error::from(e.to_string()))
     }
 
     #[cfg(test)]
     fn get_pid(&self) -> Result<Pid> {
         if self.fail_pid {
-            Err(anyhow!("unable to determine pid"))
+            Err(Error::from("unable to determine pid"))
         } else {
-            get_current_pid().map_err(|e| anyhow!(e.to_string()))
+            get_current_pid().map_err(|e| Error::from(e.to_string()))
         }
     }
 
@@ -582,8 +582,8 @@ impl AddEntries for Sysinfo {
 mod test {
     use super::Sysinfo;
     use crate::Emitter;
+    use crate::Result;
     use crate::{VergenKey, count_idempotent};
-    use anyhow::Result;
     use serial_test::serial;
     use std::{collections::BTreeMap, io::Write};
     use sysinfo::{CpuRefreshKind, RefreshKind};

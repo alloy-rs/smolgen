@@ -7,8 +7,8 @@
 // modified, or distributed except according to those terms.
 
 use self::{prefix::Prefix, suffix::Suffix};
+use crate::Result;
 use crate::pretty::utils::{has_value, split_key, split_kv};
-use anyhow::Result;
 use bon::Builder;
 #[cfg(feature = "color")]
 use console::Style;
@@ -26,7 +26,7 @@ pub(crate) mod suffix;
 ///
 /// # Display
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::pretty::{vergen_pretty_env, Pretty};
 /// #
 /// # pub fn main() -> Result<()> {
@@ -65,7 +65,7 @@ Pretty::builder()
 /// the `color` feature
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::pretty::{vergen_pretty_env, Pretty, Prefix, Suffix};
 /// #
 /// const TEST_PREFIX: &str = r#"A wonderful introduction
@@ -98,7 +98,7 @@ Pretty::builder()
 Uses [`Style`](console::Style) to colorize output
 
 ```
-# use anyhow::Result;
+# use smolgen::Result;
 # use smolgen::pretty::{vergen_pretty_env, Pretty, Style};
 # 
 # pub fn main() -> Result<()> {
@@ -233,8 +233,8 @@ impl Pretty {
 #[cfg(test)]
 mod tests {
     use super::Pretty;
+    use crate::Result;
     use crate::{pretty::utils::test_utils::is_empty, vergen_pretty_env};
-    use anyhow::Result;
     use std::io::Write;
 
     #[test]

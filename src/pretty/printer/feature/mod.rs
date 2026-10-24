@@ -82,10 +82,10 @@ impl From<Pretty> for PrettyExt {
 
 #[cfg(all(test, feature = "serde"))]
 mod test_serde {
+    use crate::Result;
     use crate::pretty::{
         Prefix, Pretty, PrettyExt, Suffix, utils::test_utils::TEST_PREFIX_SUFFIX, vergen_pretty_env,
     };
-    use anyhow::Result;
 
     const VARS: &str = r#"vars":"#;
     const PREFIX: &str = r#""prefix":{"lines":["#;

@@ -15,7 +15,7 @@ use crate::{
         RUSTC_LLVM_VERSION, RUSTC_SEMVER_NAME,
     },
 };
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use bon::Builder;
 use rustc_version::{Channel, VersionMeta, version_meta};
 use std::env;
@@ -39,7 +39,7 @@ use std::env;
 /// Emit all of the rustc instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Rustc;
 /// #
@@ -53,7 +53,7 @@ use std::env;
 /// Emit some of the rustc instructions
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use smolgen::Emitter;
 /// # use smolgen::Rustc;
 /// #
@@ -67,7 +67,7 @@ use std::env;
 /// Override output with your own value
 ///
 /// ```
-/// # use anyhow::Result;
+/// # use smolgen::Result;
 /// # use std::env;
 /// # use smolgen::Emitter;
 /// # use smolgen::Rustc;
@@ -328,7 +328,7 @@ impl AddEntries for Rustc {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{:?}", config.error()));
+            let error = Error::from(format!("{}", config.error()));
             Err(error)
         } else {
             if self.channel {
@@ -389,8 +389,8 @@ impl AddEntries for Rustc {
 mod test {
     use super::Rustc;
     use crate::Emitter;
+    use crate::Result;
     use crate::count_idempotent;
-    use anyhow::Result;
     use serial_test::serial;
     use std::io::Write;
     use temp_env::with_var;

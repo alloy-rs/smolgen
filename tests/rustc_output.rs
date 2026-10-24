@@ -2,8 +2,8 @@
 mod test_rustc {
     use std::sync::LazyLock;
 
-    use anyhow::Result;
     use regex::Regex;
+    use smolgen::Result;
     use smolgen::{Emitter, Rustc};
 
     static RUSTC_CHANNEL_RE_STR: LazyLock<&'static str> =

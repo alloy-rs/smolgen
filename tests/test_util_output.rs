@@ -2,8 +2,8 @@
 
 mod test_util;
 
-use anyhow::Result;
 use serial_test::serial;
+use smolgen::Result;
 use std::env::var;
 use test_util::{RUNNER_TEMP_ENV, TestRepos, with_cargo_vars, with_cargo_vars_ext};
 

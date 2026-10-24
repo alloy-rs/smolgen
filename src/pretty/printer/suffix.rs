@@ -6,7 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
-use anyhow::Result;
+use crate::Result;
 use bon::Builder;
 #[cfg(feature = "color")]
 use console::Style;
@@ -74,11 +74,11 @@ fn default_level() -> Level {
 
 #[cfg(test)]
 mod test {
+    use crate::Result;
     use crate::{
         pretty::{Pretty, Suffix, utils::test_utils::TEST_PREFIX_SUFFIX},
         vergen_pretty_env,
     };
-    use anyhow::Result;
     use std::io::Write;
 
     #[test]
