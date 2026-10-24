@@ -172,12 +172,13 @@ mod json {
     }
 
     fn parse_value(chars: &mut Peekable<Chars<'_>>, depth: u32) -> Option<Value> {
-        // Same nesting limit as serde_json.
-        if depth > 128 {
+        skip_ws(chars);
+        let next = *chars.peek()?;
+        // Like serde_json, allow at most 127 nested arrays and objects.
+        if matches!(next, '{' | '[') && depth >= 127 {
             return None;
         }
-        skip_ws(chars);
-        match *chars.peek()? {
+        match next {
             '{' => {
                 let _ = chars.next();
                 let mut entries = Vec::new();
@@ -219,7 +220,9 @@ mod json {
                 {
                     number.push(c);
                 }
-                valid_number(&number).then_some(Value::Number)
+                // Like serde_json, reject numbers that overflow an `f64`.
+                (valid_number(&number) && number.parse::<f64>().is_ok_and(f64::is_finite))
+                    .then_some(Value::Number)
             }
             _ => None,
         }

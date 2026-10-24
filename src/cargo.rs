@@ -484,7 +484,7 @@ impl AddEntries for Cargo {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{}", config.error()));
+            let error = Error::msg(format!("{:?}", config.error()));
             Err(error)
         } else {
             if self.debug {

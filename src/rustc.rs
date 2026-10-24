@@ -401,8 +401,11 @@ fn parse_semver(version: &str) -> Result<&str> {
         })
     };
     let mut parts = core.split('.');
-    let valid = (0..3).all(|_| parts.next().is_some_and(numeric))
-        && parts.next().is_none()
+    let valid = (0..3).all(|_| {
+        parts
+            .next()
+            .is_some_and(|p| numeric(p) && p.parse::<u64>().is_ok())
+    }) && parts.next().is_none()
         && (pre.is_empty() && !version_pre.ends_with('-') || identifiers(pre, true))
         && build.is_none_or(|b| identifiers(b, false));
     if valid {
@@ -478,7 +481,7 @@ impl AddEntries for Rustc {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::msg(format!("{}", config.error()));
+            let error = Error::msg(format!("{:?}", config.error()));
             Err(error)
         } else {
             if self.channel {
