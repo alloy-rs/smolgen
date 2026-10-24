@@ -282,15 +282,15 @@ impl Cargo {
         dep_kind_filter: Option<DependencyKind>,
     ) -> Result<String> {
         let metadata = MetadataCommand::new().exec()?;
-        let resolved_crates = metadata.resolve.ok_or_else(|| Error::from("No resolve"))?;
+        let resolved_crates = metadata.resolve.ok_or_else(|| Error::msg("No resolve"))?;
         let root_id = resolved_crates
             .root
-            .ok_or_else(|| Error::from("No root id"))?;
+            .ok_or_else(|| Error::msg("No root id"))?;
         let root = resolved_crates
             .nodes
             .into_iter()
             .find(|node| node.id == root_id)
-            .ok_or_else(|| Error::from("No root node"))?;
+            .ok_or_else(|| Error::msg("No root node"))?;
         let package_ids: Vec<(PackageId, Vec<DepKindInfo>)> = root
             .deps
             .into_iter()
@@ -487,7 +487,7 @@ impl AddEntries for Cargo {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             if self.debug {

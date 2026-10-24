@@ -444,7 +444,7 @@ impl Gix {
             ));
             Ok(repo)
         } else {
-            Err(Error::from(format!(
+            Err(Error::msg(format!(
                 "Could not find a git repository at '{}'",
                 repo_dir.display()
             )))
@@ -664,10 +664,10 @@ impl Gix {
 
     fn get_commit<'a>(repo: &Repository, head: &mut Head<'a>) -> Result<Commit<'a>> {
         Ok(if repo.is_shallow() {
-            let id = Self::get_id(head)?.ok_or_else(|| Error::from("Not an Id"))?;
+            let id = Self::get_id(head)?.ok_or_else(|| Error::msg("Not an Id"))?;
             let object = id
                 .try_object()?
-                .ok_or_else(|| Error::from("Not an Object"))?;
+                .ok_or_else(|| Error::msg("Not an Object"))?;
             object.try_into_commit()?
         } else {
             head.peel_to_commit()?
@@ -873,7 +873,7 @@ impl AddEntries for Gix {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous cargo_warning.  This should be it.

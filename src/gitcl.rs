@@ -542,7 +542,7 @@ impl Gitcl {
         if Self::git_cmd_exists(cmd) {
             Ok(())
         } else {
-            Err(Error::from("no suitable 'git' command found!"))
+            Err(Error::msg("no suitable 'git' command found!"))
         }
     }
 
@@ -550,7 +550,7 @@ impl Gitcl {
         if Self::inside_git_worktree(path) {
             Ok(())
         } else {
-            Err(Error::from("not within a suitable 'git' worktree!"))
+            Err(Error::msg("not within a suitable 'git' worktree!"))
         }
     }
 
@@ -634,7 +634,7 @@ impl Gitcl {
             Ok(output.stdout)
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(Error::from(format!("Failed to run '{command}'!  {stderr}")))
+            Err(Error::msg(format!("Failed to run '{command}'!  {stderr}")))
         }
     }
 
@@ -945,7 +945,7 @@ impl Gitcl {
             let stdout = String::from_utf8_lossy(&output.stdout)
                 .lines()
                 .last()
-                .ok_or_else(|| Error::from("invalid 'git log' output"))?
+                .ok_or_else(|| Error::msg("invalid 'git log' output"))?
                 .trim()
                 .trim_matches('\'')
                 .to_string();
@@ -1112,7 +1112,7 @@ impl Gitcl {
             };
             create_dir_all(&remote_path)?;
             if !self.clone_repo(remote_url, Some(&remote_path)) {
-                return Err(Error::from("Failed to clone git repository"));
+                return Err(Error::msg("Failed to clone git repository"));
             }
             cargo_warning.push(format!(
                 "Using remote repository from '{remote_url}' at '{}'",
@@ -1190,7 +1190,7 @@ impl AddEntries for Gitcl {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous data.  We are re-populating

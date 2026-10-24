@@ -8,7 +8,7 @@
     )
 )]
 
-use crate::Result;
+use crate::{Error, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const SECS_PER_DAY: i64 = 86_400;
@@ -50,7 +50,7 @@ impl DateTime {
     /// The UTC instant `unix` seconds after the Unix epoch, for years -9999 through 9999.
     pub(crate) fn from_unix_timestamp(unix: i64) -> Result<Self> {
         if !(MIN_UNIX..=MAX_UNIX).contains(&unix) {
-            return Err(format!("unix timestamp {unix} out of range").into());
+            return Err(Error::msg(format!("unix timestamp {unix} out of range")));
         }
         Ok(Self {
             unix,
@@ -62,7 +62,7 @@ impl DateTime {
     /// Parses an RFC 3339 timestamp such as `2024-01-31T03:26:34+01:00`.
     pub(crate) fn parse_rfc3339(s: &str) -> Result<Self> {
         Self::parse_rfc3339_bytes(s.as_bytes())
-            .ok_or_else(|| format!("invalid RFC 3339 timestamp: {s:?}").into())
+            .ok_or_else(|| Error::msg(format!("invalid RFC 3339 timestamp: {s:?}")))
     }
 
     fn parse_rfc3339_bytes(b: &[u8]) -> Option<Self> {
@@ -147,7 +147,7 @@ impl DateTime {
     pub(crate) fn to_local(self) -> Result<Self> {
         let offset = sys::local_offset_at(self)
             .filter(|offset| offset.abs() <= MAX_OFFSET)
-            .ok_or("unable to determine the local UTC offset")?;
+            .ok_or_else(|| Error::msg("unable to determine the local UTC offset"))?;
         let local = Self { offset, ..self };
         let (year, ..) = local.civil();
         Ok(if (MIN_YEAR..=MAX_YEAR).contains(&year) {
@@ -174,10 +174,14 @@ impl DateTime {
     pub(crate) fn format_iso8601(self) -> Result<String> {
         let (year, month, day, secs) = self.civil();
         if year < 0 {
-            return Err(format!("year {year} cannot be formatted as ISO 8601").into());
+            return Err(Error::msg(format!(
+                "year {year} cannot be formatted as ISO 8601"
+            )));
         }
         if self.offset % 60 != 0 {
-            return Err("UTC offsets with seconds cannot be formatted as ISO 8601".into());
+            return Err(Error::msg(
+                "UTC offsets with seconds cannot be formatted as ISO 8601",
+            ));
         }
         let (h, m, s) = (secs / 3600, secs / 60 % 60, secs % 60);
         let mut out = format!(

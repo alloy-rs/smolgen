@@ -311,7 +311,7 @@ impl AddEntries for Build {
     ) -> Result<()> {
         if self.any() {
             self.add_timestamp_entries(idempotent, cargo_rustc_env, cargo_warning)
-                .map_err(|e| format!("Error adding build timestamp entries: {e}"))?;
+                .map_err(|e| Error::msg(format!("Error adding build timestamp entries: {e}")))?;
         }
         Ok(())
     }
@@ -324,7 +324,7 @@ impl AddEntries for Build {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             if self.build_date {

@@ -278,9 +278,6 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-/// The error type used by `smolgen`. Any [`std::error::Error`] converts into it with `?`.
-pub type Error = Box<dyn std::error::Error + Send + Sync>;
-
 /// A [`Result`](core::result::Result) that defaults to [`Error`].
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -327,6 +324,7 @@ mod config;
 pub mod constants;
 mod emitter;
 mod entries;
+mod error;
 mod keys;
 mod utils;
 
@@ -355,6 +353,8 @@ mod rustc;
 mod si;
 
 #[cfg(test)]
+extern crate self as smolgen;
+#[cfg(test)]
 #[path = "../tests/test_util/mod.rs"]
 mod test_util;
 
@@ -366,6 +366,7 @@ pub use self::entries::{
     Add as AddEntries, AddCustom as AddCustomEntries, CargoRerunIfChanged, CargoRustcEnvMap,
     CargoWarning, DefaultConfig,
 };
+pub use self::error::Error;
 pub use self::keys::vergen_key::VergenKey;
 #[cfg(feature = "vcs_info")]
 #[doc(hidden)]

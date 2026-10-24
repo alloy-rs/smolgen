@@ -206,7 +206,7 @@ pub(crate) mod test_gen {
             _cargo_warning: &mut CargoWarning,
         ) -> Result<()> {
             if self.fail {
-                Err(Error::from("We have failed"))
+                Err(Error::msg("We have failed"))
             } else {
                 if idempotent {
                     let _ = cargo_rustc_env_map.insert("test", "VERGEN_IDEMPOTENT_OUTPUT");
@@ -225,7 +225,7 @@ pub(crate) mod test_gen {
             _cargo_warning: &mut CargoWarning,
         ) -> Result<()> {
             if *config.fail_on_error() {
-                let error = Error::from(format!("{}", config.error()));
+                let error = Error::msg(format!("{}", config.error()));
                 Err(error)
             } else {
                 let _ = cargo_rustc_env_map.insert("test", "VERGEN_IDEMPOTENT_OUTPUT");
@@ -243,7 +243,7 @@ mod test {
 
     #[test]
     fn default_config_debug() -> Result<()> {
-        let config = DefaultConfig::new(true, true, Error::from("blah"));
+        let config = DefaultConfig::new(true, true, Error::msg("blah"));
         let mut buf = vec![];
         write!(buf, "{config:?}")?;
         assert_ne!(buf.len(), 0);

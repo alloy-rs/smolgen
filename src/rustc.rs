@@ -328,17 +328,16 @@ fn version_meta() -> Result<VersionMeta> {
     let out = cmd
         .arg("-vV")
         .output()
-        .map_err(|e| format!("could not execute command: {e}"))?;
+        .map_err(|e| Error::msg(format!("could not execute command: {e}")))?;
     if !out.status.success() {
-        return Err(format!(
+        return Err(Error::msg(format!(
             "error from command -- stderr:\n\n{}\n\nstdout:\n\n{}",
             String::from_utf8_lossy(&out.stderr),
             String::from_utf8_lossy(&out.stdout),
-        )
-        .into());
+        )));
     }
-    let stdout =
-        String::from_utf8(out.stdout).map_err(|_| "invalid UTF-8 output from `rustc -vV`")?;
+    let stdout = String::from_utf8(out.stdout)
+        .map_err(|_| Error::msg("invalid UTF-8 output from `rustc -vV`"))?;
     version_meta_for(&stdout)
 }
 
@@ -350,7 +349,11 @@ fn version_meta_for(verbose_version_string: &str) -> Result<VersionMeta> {
             let _ = map.insert(key, value);
         }
     }
-    let expect_key = |key| map.get(key).copied().ok_or("unexpected `rustc -vV` format");
+    let expect_key = |key| {
+        map.get(key)
+            .copied()
+            .ok_or_else(|| Error::msg("unexpected `rustc -vV` format"))
+    };
     let expect_key_or_unknown =
         |key| expect_key(key).map(|v| (v != "unknown").then(|| v.to_string()));
 
@@ -362,7 +365,7 @@ fn version_meta_for(verbose_version_string: &str) -> Result<VersionMeta> {
         "dev" => "dev",
         "beta" => "beta",
         "nightly" => "nightly",
-        x => return Err(format!("unknown pre-release tag: {x}").into()),
+        x => return Err(Error::msg(format!("unknown pre-release tag: {x}"))),
     };
     let commit_hash = expect_key_or_unknown("commit-hash")?;
     let commit_date = expect_key_or_unknown("commit-date")?;
@@ -408,7 +411,7 @@ fn parse_semver(version: &str) -> Result<&str> {
     if valid {
         Ok(pre)
     } else {
-        Err(invalid().into())
+        Err(Error::msg(invalid()))
     }
 }
 
@@ -418,16 +421,18 @@ fn parse_llvm_version(version: &str) -> Result<String> {
         if part == "0" {
             Ok(0)
         } else if part.starts_with('0') {
-            Err(
-                "error parsing LLVM's version: a version component must not have leading zeros"
-                    .into(),
-            )
+            Err(Error::msg(
+                "error parsing LLVM's version: a version component must not have leading zeros",
+            ))
         } else if part.starts_with('-') || part.starts_with('+') {
-            Err("error parsing LLVM's version: a version component must not have a sign".into())
+            Err(Error::msg(
+                "error parsing LLVM's version: a version component must not have a sign",
+            ))
         } else {
             part.parse().map_err(|e| {
-                format!("error parsing LLVM's version: error parsing LLVM version component: {e}")
-                    .into()
+                Error::msg(format!(
+                    "error parsing LLVM's version: error parsing LLVM version component: {e}"
+                ))
             })
         }
     });
@@ -435,7 +440,9 @@ fn parse_llvm_version(version: &str) -> Result<String> {
     let minor = match parts.next() {
         Some(part) => part?,
         None if major < 4 => {
-            return Err("error parsing LLVM's version: LLVM's minor version component is required for versions less than 4.0".into());
+            return Err(Error::msg(
+                "error parsing LLVM's version: LLVM's minor version component is required for versions less than 4.0",
+            ));
         }
         None => 0,
     };
@@ -444,7 +451,9 @@ fn parse_llvm_version(version: &str) -> Result<String> {
         return Err(e);
     }
     if parts.next().is_some() {
-        return Err("error parsing LLVM's version: too many version components".into());
+        return Err(Error::msg(
+            "error parsing LLVM's version: too many version components",
+        ));
     }
     Ok(format!("{major}.{minor}"))
 }
@@ -472,7 +481,7 @@ impl AddEntries for Rustc {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             if self.channel {

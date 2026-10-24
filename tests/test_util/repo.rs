@@ -1,4 +1,3 @@
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 use git::{
     Id, ObjectId,
     clone::PrepareFetch,
@@ -18,6 +17,7 @@ use git::{
 };
 use gix as git;
 use rand::{RngExt, distr::Alphanumeric, rng};
+use smolgen::Result;
 use std::{
     env,
     fs::{self, FileTimes, OpenOptions},

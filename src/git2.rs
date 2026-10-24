@@ -427,7 +427,7 @@ impl Git2 {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if self.fail {
-            return Err(Error::from("failed to create entries"));
+            return Err(Error::msg("failed to create entries"));
         }
         self.inner_add_entries(
             idempotent,
@@ -513,7 +513,7 @@ impl Git2 {
             ));
             Ok(repo)
         } else {
-            Err(Error::from(format!(
+            Err(Error::msg(format!(
                 "Could not find a git repository at '{}'",
                 repo_dir.display()
             )))
@@ -1007,7 +1007,7 @@ impl AddEntries for Git2 {
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
         if *config.fail_on_error() {
-            let error = Error::from(format!("{}", config.error()));
+            let error = Error::msg(format!("{}", config.error()));
             Err(error)
         } else {
             // Clear any previous warnings.  This should be it.
