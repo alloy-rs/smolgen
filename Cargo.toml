@@ -27,7 +27,7 @@ gitcl = ["dep:time"]
 gix = ["dep:gix", "dep:time"]
 rustc = []
 si = ["dep:sysinfo"]
-vcs_info = ["dep:serde_json"]
+vcs_info = []
 pretty = ["dep:convert_case"]
 color = ["pretty", "dep:console"]
 header = ["pretty", "dep:console", "dep:rand"]
@@ -54,7 +54,6 @@ rand = { version = "0.10.2", optional = true }
 regex = { version = "1.13.1", optional = true }
 rkyv = { version = "0.8.18", features = ["std"], optional = true }
 serde = { version = "1.0.229", features = ["derive"], optional = true }
-serde_json = { version = "1.0.151", optional = true }
 sysinfo = { version = "0.39.6", optional = true }
 time = { version = "0.3.55", features = [
     "formatting",
