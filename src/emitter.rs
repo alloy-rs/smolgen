@@ -366,7 +366,6 @@ impl Emitter {
 
         // Emit the 'cargo:rerun-if-changed' instructions
         if !self.cargo_rustc_env_map.is_empty()
-            || !self.cargo_rustc_env_map_custom.is_empty()
             || !self.cargo_warning.is_empty()
             || !self.cargo_rerun_if_changed.is_empty()
         {
@@ -576,14 +575,14 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
 
     #[test]
     #[serial]
-    fn custom_instructions_only_emit_rerun_lines() -> Result<()> {
+    fn custom_instructions_only_keep_cargo_default_rerun() -> Result<()> {
         use crate::entries::test_gen::CustomInsGen;
         let mut stdout_buf = vec![];
         _ = Emitter::new()
             .add_custom_instructions(&CustomInsGen::default())?
             .emit_to(&mut stdout_buf)?;
         let output = String::from_utf8_lossy(&stdout_buf);
-        assert_eq!(output, format!("cargo:rustc-env=test=value\n{RERUN_LINES}"));
+        assert_eq!(output, "cargo:rustc-env=test=value\n");
         Ok(())
     }
 

@@ -423,6 +423,21 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
 
     #[test]
     #[serial]
+    fn git_rerun_detached_head_in_linked_worktree() -> Result<()> {
+        let repo = TestRepos::new(false, false, false)?;
+        let worktree = repo.add_worktree("wt-branch")?;
+        repo.git(&["-C", &worktree.to_string_lossy(), "checkout", "--detach"])?;
+        let name = worktree.file_name().unwrap().to_string_lossy();
+
+        let tracked = rerun_paths(&worktree, true)?;
+        assert_eq!(tracked.len(), 2);
+        assert!(Path::new(&tracked[0]).ends_with(format!(".git/worktrees/{name}/HEAD")));
+        assert_eq!(tracked[1], "build.rs");
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
     fn git_rerun_with_packed_refs() -> Result<()> {
         let repo = TestRepos::new(false, false, false)?;
         repo.git(&["pack-refs", "--all"])?;

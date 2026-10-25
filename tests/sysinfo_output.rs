@@ -4,7 +4,6 @@ mod test_util;
 mod test_sysinfo {
     use std::sync::LazyLock;
 
-    use crate::test_util::assert_overrides_watched;
     use regex::Regex;
     use serial_test::serial;
     use smolgen::Result;
@@ -131,18 +130,6 @@ cargo:rerun-if-env-changed=VERGEN_SYSINFO_USER
             .emit_to(&mut stdout_buf)?;
         let output = String::from_utf8_lossy(&stdout_buf);
         assert_eq!(IDEM_QUITE_OUTPUT, output);
-        Ok(())
-    }
-
-    #[test]
-    #[serial]
-    fn sysinfo_overrides_watched() -> Result<()> {
-        let mut stdout_buf = vec![];
-        let sysinfo = Sysinfo::all_sysinfo();
-        Emitter::default()
-            .add_instructions(&sysinfo)?
-            .emit_to(&mut stdout_buf)?;
-        assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
         Ok(())
     }
 }

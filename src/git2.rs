@@ -22,7 +22,10 @@ use git2_rs::{
     BranchType, Commit, DescribeFormatOptions, DescribeOptions, Reference, Repository,
     StatusOptions,
 };
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 #[cfg(feature = "allow_remote")]
 use {
     git2_rs::{FetchOptions, build::RepoBuilder},
@@ -215,18 +218,11 @@ builder! {
         commit_timestamp_unix: bool,
         /// Enable local offset date/timestamp output
         use_local: bool,
-        /// Emit `cargo:rerun-if-changed` for the git directory's `HEAD` and the ref it
-        /// points to.  Defaults to `true`, so cargo reruns the build script whenever a
-        /// commit, checkout, or rebase moves `HEAD`.
+        /// Emit `cargo:rerun-if-changed` for the git directory's `HEAD` and the ref it points
+        /// to. Defaults to `true`.
         ///
-        /// Set this to `false` to skip the `HEAD` and ref paths.  The build script then reruns only
-        /// when `build.rs`, a watched environment variable, or a path you register yourself
-        /// changes, so the emitted `VERGEN_GIT_*` values reflect the last time the build
-        /// script ran, not necessarily the current commit.  This avoids rebuilding the crate
-        /// and its dependents on every commit during development, for example
-        /// `.rerun_on_head_change(std::env::var("PROFILE")? != "debug")`.
-        ///
-        /// The `build.rs` and `rerun-if-env-changed` instructions are unaffected.
+        /// Set this to `false` to skip them, so commits and checkouts no longer rerun the build
+        /// script. The `VERGEN_GIT_*` values then stay as they were the last time it ran.
         rerun_on_head_change: bool,
         #[cfg(test)]
         /// Fail
@@ -750,15 +746,12 @@ impl Git2 {
         repo: &Repository,
         cargo_rerun_if_changed: &mut CargoRerunIfChanged,
     ) {
-        let reference = ref_head
-            .resolve()
-            .ok()
-            .and_then(|resolved| resolved.name().ok().map(PathBuf::from));
+        let reference = ref_head.symbolic_target().ok().flatten().map(Path::new);
         add_rerun_if_changed_paths(
             cargo_rerun_if_changed,
             &repo.path().join("HEAD"),
             repo.commondir(),
-            reference.as_deref(),
+            reference,
         );
     }
 
