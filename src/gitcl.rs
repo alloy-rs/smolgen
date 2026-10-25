@@ -340,7 +340,7 @@ builder! {
         /// points to.  Defaults to `true`, so cargo reruns the build script whenever a
         /// commit, checkout, or rebase moves `HEAD`.
         ///
-        /// Set this to `false` to skip those two paths.  The build script then reruns only
+        /// Set this to `false` to skip the `HEAD` and ref paths.  The build script then reruns only
         /// when `build.rs`, a watched environment variable, or a path you register yourself
         /// changes, so the emitted `VERGEN_GIT_*` values reflect the last time the build
         /// script ran, not necessarily the current commit.  This avoids rebuilding the crate
@@ -853,17 +853,16 @@ impl Gitcl {
             if let Some(head) = lines.next()
                 && let Some(common_dir) = lines.next()
             {
-                let common_dir = resolve(common_dir);
                 let refp = Self::run_cmd("git symbolic-ref HEAD", path)?;
                 let reference = refp
                     .status
                     .success()
-                    .then(|| common_dir.join(String::from_utf8_lossy(&refp.stdout).trim()));
+                    .then(|| PathBuf::from(String::from_utf8_lossy(&refp.stdout).trim()));
                 add_rerun_if_changed_paths(
                     rerun_if_changed,
                     &resolve(head),
+                    &resolve(common_dir),
                     reference.as_deref(),
-                    &common_dir.join("packed-refs"),
                 );
             }
         }

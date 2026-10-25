@@ -3,6 +3,7 @@
 mod test_util;
 
 mod test_git_gix {
+    use std::fs;
     use std::path::Path;
     use std::sync::LazyLock;
 
@@ -430,9 +431,9 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
         assert_eq!(tracked.len(), 3);
         // HEAD is per worktree, the branch ref lives in the common git dir.
         assert!(Path::new(&tracked[0]).ends_with(format!(".git/worktrees/{name}/HEAD")));
-        assert!(
-            Path::new(&tracked[1]).ends_with(".git/refs/heads/wt-branch"),
-            "{tracked:?}"
+        assert_eq!(
+            fs::canonicalize(&tracked[1])?,
+            fs::canonicalize(repo.path().join(".git/refs/heads/wt-branch"))?
         );
         assert_eq!(tracked[2], "build.rs");
         Ok(())

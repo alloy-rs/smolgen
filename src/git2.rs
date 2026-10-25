@@ -219,7 +219,7 @@ builder! {
         /// points to.  Defaults to `true`, so cargo reruns the build script whenever a
         /// commit, checkout, or rebase moves `HEAD`.
         ///
-        /// Set this to `false` to skip those two paths.  The build script then reruns only
+        /// Set this to `false` to skip the `HEAD` and ref paths.  The build script then reruns only
         /// when `build.rs`, a watched environment variable, or a path you register yourself
         /// changes, so the emitted `VERGEN_GIT_*` values reflect the last time the build
         /// script ran, not necessarily the current commit.  This avoids rebuilding the crate
@@ -750,16 +750,15 @@ impl Git2 {
         repo: &Repository,
         cargo_rerun_if_changed: &mut CargoRerunIfChanged,
     ) {
-        let common_dir = repo.commondir();
         let reference = ref_head
             .resolve()
             .ok()
-            .and_then(|resolved| resolved.name().ok().map(|name| common_dir.join(name)));
+            .and_then(|resolved| resolved.name().ok().map(PathBuf::from));
         add_rerun_if_changed_paths(
             cargo_rerun_if_changed,
             &repo.path().join("HEAD"),
+            repo.commondir(),
             reference.as_deref(),
-            &common_dir.join("packed-refs"),
         );
     }
 
