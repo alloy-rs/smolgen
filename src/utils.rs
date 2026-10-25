@@ -1,5 +1,7 @@
 use crate::{CargoRustcEnvMap, CargoWarning, VergenKey, constants::VERGEN_IDEMPOTENT_DEFAULT};
 use std::env;
+#[cfg(any(feature = "gitcl", feature = "git2", feature = "gix"))]
+use {crate::CargoRerunIfChanged, std::path::Path};
 
 /// Add a [`VergenKey`] entry as a default string into the [`CargoRustcEnvMap`].
 /// The value is either from an environment variable override or [`crate::constants::VERGEN_IDEMPOTENT_DEFAULT`]
@@ -83,6 +85,56 @@ pub fn count_idempotent(map: &CargoRustcEnvMap) -> usize {
     map.values()
         .filter(|x| *x == VERGEN_IDEMPOTENT_DEFAULT)
         .count()
+}
+
+/// The names of the override environment variables of the enabled instructions.
+#[cfg(any(
+    feature = "build",
+    feature = "cargo",
+    feature = "gitcl",
+    feature = "git2",
+    feature = "gix",
+    feature = "rustc",
+    feature = "si"
+))]
+pub(crate) fn enabled_env_names(instructions: &[(bool, &'static str)]) -> Vec<&'static str> {
+    instructions
+        .iter()
+        .filter_map(|&(enabled, name)| enabled.then_some(name))
+        .collect()
+}
+
+/// Add the paths cargo should watch to notice a new commit: `HEAD` (in the worktree's own git
+/// dir) and the branch `reference` name (resolved in the `common_dir` shared by linked
+/// worktrees).
+///
+/// A packed reference has no loose file.  A commit then writes a new loose file, so watch
+/// `packed-refs` and the nearest existing parent directory of the reference instead.
+#[cfg(any(feature = "gitcl", feature = "git2", feature = "gix"))]
+pub(crate) fn add_rerun_if_changed_paths(
+    cargo_rerun_if_changed: &mut CargoRerunIfChanged,
+    head: &Path,
+    common_dir: &Path,
+    reference: Option<&Path>,
+) {
+    let mut add = |path: &Path| cargo_rerun_if_changed.push(path.display().to_string());
+    if head.exists() {
+        add(head);
+    }
+    if let Some(reference) = reference {
+        let reference = common_dir.join(reference);
+        if reference.exists() {
+            add(&reference);
+        } else {
+            let packed_refs = common_dir.join("packed-refs");
+            if packed_refs.exists() {
+                add(&packed_refs);
+            }
+            if let Some(dir) = reference.ancestors().skip(1).find(|dir| dir.is_dir()) {
+                add(dir);
+            }
+        }
+    }
 }
 
 /// Read the git SHA and dirty flag from a `.cargo_vcs_info.json` file at

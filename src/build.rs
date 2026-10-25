@@ -6,6 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+use crate::utils::enabled_env_names;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -350,6 +351,14 @@ impl AddEntries for Build {
             }
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.build_date, BUILD_DATE_NAME),
+            (self.build_timestamp, BUILD_TIMESTAMP_NAME),
+            (self.build_timestamp_unix, BUILD_TIMESTAMP_UNIX_NAME),
+        ])
     }
 }
 

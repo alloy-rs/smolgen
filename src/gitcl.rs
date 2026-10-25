@@ -15,6 +15,7 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
     datetime::DateTime,
+    utils::{add_rerun_if_changed_paths, enabled_env_names},
 };
 use crate::{Error, Result};
 use std::{
@@ -223,6 +224,7 @@ pub struct Gitcl {
     sha: Option<Sha>,
     dirty: Option<Dirty>,
     use_local: bool,
+    rerun_on_head_change: bool,
     git_cmd: Option<&'static str>,
 }
 
@@ -252,6 +254,7 @@ impl Default for Gitcl {
             sha: None,
             dirty: None,
             use_local: false,
+            rerun_on_head_change: true,
             git_cmd: None,
         }
     }
@@ -333,6 +336,12 @@ builder! {
         commit_timestamp_unix: bool,
         /// Enable local offset date/timestamp output
         use_local: bool,
+        /// Emit `cargo:rerun-if-changed` for the git directory's `HEAD` and the ref it points
+        /// to. Defaults to `true`.
+        ///
+        /// Set this to `false` to skip them, so commits and checkouts no longer rerun the build
+        /// script. The `VERGEN_GIT_*` values then stay as they were the last time it ran.
+        rerun_on_head_change: bool,
     }
 }
 
@@ -647,7 +656,7 @@ impl Gitcl {
         cargo_rerun_if_changed: &mut CargoRerunIfChanged,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()> {
-        if !idempotent && self.any() {
+        if !idempotent && self.any() && self.rerun_on_head_change {
             Self::add_rerun_if_changed(cargo_rerun_if_changed, repo_path)?;
         }
 
@@ -828,28 +837,26 @@ impl Gitcl {
         rerun_if_changed: &mut Vec<String>,
         path: Option<&PathBuf>,
     ) -> Result<()> {
-        let git_path = Self::run_cmd("git rev-parse --git-dir", path)?;
-        if git_path.status.success() {
-            let git_path_str = String::from_utf8_lossy(&git_path.stdout).trim().to_string();
-            let git_path = PathBuf::from(&git_path_str);
-
-            // Setup the head path
-            let mut head_path = git_path.clone();
-            head_path.push("HEAD");
-
-            if head_path.exists() {
-                rerun_if_changed.push(format!("{}", head_path.display()));
-            }
-
-            // Setup the ref path
-            let refp = Self::setup_ref_path(path)?;
-            if refp.status.success() {
-                let ref_path_str = String::from_utf8_lossy(&refp.stdout).trim().to_string();
-                let mut ref_path = git_path;
-                ref_path.push(ref_path_str);
-                if ref_path.exists() {
-                    rerun_if_changed.push(format!("{}", ref_path.display()));
-                }
+        let paths = Self::run_cmd("git rev-parse --git-path HEAD --git-common-dir", path)?;
+        if paths.status.success() {
+            let stdout = String::from_utf8_lossy(&paths.stdout);
+            let mut lines = stdout.lines();
+            // Git prints paths relative to where it ran.
+            let resolve = |line: &str| path.map_or_else(|| PathBuf::from(line), |p| p.join(line));
+            if let Some(head) = lines.next()
+                && let Some(common_dir) = lines.next()
+            {
+                let refp = Self::run_cmd("git symbolic-ref HEAD", path)?;
+                let reference = refp
+                    .status
+                    .success()
+                    .then(|| PathBuf::from(String::from_utf8_lossy(&refp.stdout).trim()));
+                add_rerun_if_changed_paths(
+                    rerun_if_changed,
+                    &resolve(head),
+                    &resolve(common_dir),
+                    reference.as_deref(),
+                );
             }
         }
         Ok(())
@@ -866,21 +873,6 @@ impl Gitcl {
     fn match_pattern_cmd_str(describe_cmd: &mut String, pattern: &str) {
         describe_cmd.push_str(" --match ");
         describe_cmd.push_str(pattern);
-    }
-
-    #[cfg(not(test))]
-    fn setup_ref_path(path: Option<&PathBuf>) -> Result<Output> {
-        Self::run_cmd("git symbolic-ref HEAD", path)
-    }
-
-    #[cfg(all(test, not(target_os = "windows")))]
-    fn setup_ref_path(path: Option<&PathBuf>) -> Result<Output> {
-        Self::run_cmd("pwd", path)
-    }
-
-    #[cfg(all(test, target_os = "windows"))]
-    fn setup_ref_path(path: Option<&PathBuf>) -> Result<Output> {
-        Self::run_cmd("cd", path)
     }
 
     fn add_git_cmd_entry(
@@ -1302,6 +1294,22 @@ impl AddEntries for Gitcl {
             }
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.branch, GIT_BRANCH_NAME),
+            (self.commit_author_email, GIT_COMMIT_AUTHOR_EMAIL),
+            (self.commit_author_name, GIT_COMMIT_AUTHOR_NAME),
+            (self.commit_count, GIT_COMMIT_COUNT),
+            (self.commit_message, GIT_COMMIT_MESSAGE),
+            (self.commit_date, GIT_COMMIT_DATE_NAME),
+            (self.commit_timestamp, GIT_COMMIT_TIMESTAMP_NAME),
+            (self.commit_timestamp_unix, GIT_COMMIT_TIMESTAMP_UNIX_NAME),
+            (self.describe.is_some(), GIT_DESCRIBE_NAME),
+            (self.sha.is_some(), GIT_SHA_NAME),
+            (self.dirty.is_some(), GIT_DIRTY_NAME),
+        ])
     }
 }
 

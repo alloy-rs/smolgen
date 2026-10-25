@@ -1,3 +1,5 @@
+mod test_util;
+
 #[cfg(feature = "si")]
 mod test_sysinfo {
     use std::sync::LazyLock;
@@ -54,6 +56,15 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_BRAND
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_CORE_COUNT
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_FREQUENCY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_VENDOR
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_OS_VERSION
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_TOTAL_MEMORY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_USER
 ";
 
     const IDEM_QUITE_OUTPUT: &str = r"cargo:rustc-env=VERGEN_SYSINFO_NAME=VERGEN_IDEMPOTENT_OUTPUT
@@ -69,6 +80,15 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_BRAND
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_CORE_COUNT
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_FREQUENCY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_VENDOR
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_OS_VERSION
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_TOTAL_MEMORY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_USER
 ";
 
     #[test]

@@ -23,6 +23,7 @@ use std::{
     fs::{self, FileTimes, OpenOptions},
     io::{BufWriter, Write},
     path::PathBuf,
+    process::Command,
     sync::LazyLock,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -287,6 +288,44 @@ impl TestRepos {
         self.clone_path.clone()
     }
 
+    /// Create a linked worktree of the cloned repository on a new branch and return its path
+    ///
+    /// The worktree is removed when the [`TestRepos`] is dropped.
+    ///
+    /// # Errors
+    /// * Errors running `git worktree add`
+    ///
+    pub fn add_worktree(&self, branch: &str) -> Result<PathBuf> {
+        let path = self.worktree_path();
+        self.git(&["worktree", "add", "-b", branch, &path.to_string_lossy()])?;
+        Ok(path)
+    }
+
+    /// Run a git command in the cloned repository
+    ///
+    /// # Errors
+    /// * Errors running git or a non-zero exit status
+    ///
+    pub fn git(&self, args: &[&str]) -> Result<()> {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(&self.clone_path)
+            .status()?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(smolgen::Error::msg(format!(
+                "git {args:?} failed: {status}"
+            )))
+        }
+    }
+
+    fn worktree_path(&self) -> PathBuf {
+        let mut path = self.clone_path.clone().into_os_string();
+        path.push("_wt");
+        PathBuf::from(path)
+    }
+
     // Create a new file that is not under git control
     fn create_untracked_file(&mut self) -> Result<()> {
         let file_path = self.clone_path.join("bar.txt");
@@ -350,6 +389,7 @@ impl TestRepos {
 impl Drop for TestRepos {
     fn drop(&mut self) {
         let _res = fs::remove_dir_all(&self.clone_path);
+        let _res = fs::remove_dir_all(self.worktree_path());
         let _res = fs::remove_dir_all(&self.bare_repo_path);
     }
 }

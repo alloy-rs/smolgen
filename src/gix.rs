@@ -15,6 +15,7 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
     datetime::DateTime,
+    utils::{add_rerun_if_changed_paths, enabled_env_names},
 };
 use crate::{Error, Result};
 use gix::{
@@ -23,10 +24,7 @@ use gix::{
     dir::{entry::Status, walk::EmissionMode},
     discover, head,
 };
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::{env, path::PathBuf};
 #[cfg(feature = "allow_remote")]
 use {
     gix::{clone::PrepareFetch, create, open, progress},
@@ -80,7 +78,7 @@ use {
 /// # }
 /// ```
 ///
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Gix {
     /// Configures the default values.
@@ -108,6 +106,37 @@ pub struct Gix {
     sha: Option<Sha>,
     dirty: Option<Dirty>,
     use_local: bool,
+    rerun_on_head_change: bool,
+}
+
+impl Default for Gix {
+    fn default() -> Self {
+        Self {
+            all: false,
+            local_repo_path: None,
+            force_local: false,
+            #[cfg(test)]
+            force_remote: false,
+            remote_url: None,
+            remote_repo_path: None,
+            remote_tag: None,
+            #[cfg(feature = "vcs_info")]
+            vcs_info_fallback: false,
+            branch: false,
+            commit_author_name: false,
+            commit_author_email: false,
+            commit_count: false,
+            commit_message: false,
+            commit_date: false,
+            commit_timestamp: false,
+            commit_timestamp_unix: false,
+            describe: None,
+            sha: None,
+            dirty: None,
+            use_local: false,
+            rerun_on_head_change: true,
+        }
+    }
 }
 
 builder! {
@@ -180,6 +209,12 @@ builder! {
         commit_timestamp_unix: bool,
         /// Enable local offset date/timestamp output
         use_local: bool,
+        /// Emit `cargo:rerun-if-changed` for the git directory's `HEAD` and the ref it points
+        /// to. Defaults to `true`.
+        ///
+        /// Set this to `false` to skip them, so commits and checkouts no longer rerun the build
+        /// script. The `VERGEN_GIT_*` values then stay as they were the last time it ran.
+        rerun_on_head_change: bool,
     }
 }
 
@@ -485,11 +520,10 @@ impl Gix {
         };
         let repo = self.get_repository(&repo_dir, cargo_warning)?;
         let mut head = repo.head()?;
-        let git_path = repo.git_dir().to_path_buf();
         let commit = Self::get_commit(&repo, &mut head)?;
 
-        if !idempotent && self.any() {
-            Self::add_rerun_if_changed(&head, &git_path, cargo_rerun_if_changed);
+        if !idempotent && self.any() && self.rerun_on_head_change {
+            Self::add_rerun_if_changed(&head, &repo, cargo_rerun_if_changed);
         }
 
         if self.branch {
@@ -680,26 +714,19 @@ impl Gix {
 
     fn add_rerun_if_changed(
         head: &Head<'_>,
-        git_path: &Path,
+        repo: &Repository,
         cargo_rerun_if_changed: &mut Vec<String>,
     ) {
-        // Setup the head path
-        let mut head_path = git_path.to_path_buf();
-        head_path.push("HEAD");
-
-        // Check whether the path exists in the filesystem before emitting it
-        if head_path.exists() {
-            cargo_rerun_if_changed.push(format!("{}", head_path.display()));
-        }
-
-        if let head::Kind::Symbolic(reference) = &head.kind {
-            let mut ref_path = git_path.to_path_buf();
-            ref_path.push(reference.name.to_path());
-            // Check whether the path exists in the filesystem before emitting it
-            if ref_path.exists() {
-                cargo_rerun_if_changed.push(format!("{}", ref_path.display()));
-            }
-        }
+        let reference = match &head.kind {
+            head::Kind::Symbolic(reference) => Some(reference.name.to_path()),
+            _ => None,
+        };
+        add_rerun_if_changed_paths(
+            cargo_rerun_if_changed,
+            &repo.git_dir().join("HEAD"),
+            repo.common_dir(),
+            reference,
+        );
     }
 
     fn add_git_timestamp_entries(
@@ -984,6 +1011,22 @@ impl AddEntries for Gix {
             }
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.branch, GIT_BRANCH_NAME),
+            (self.commit_author_email, GIT_COMMIT_AUTHOR_EMAIL),
+            (self.commit_author_name, GIT_COMMIT_AUTHOR_NAME),
+            (self.commit_count, GIT_COMMIT_COUNT),
+            (self.commit_message, GIT_COMMIT_MESSAGE),
+            (self.commit_date, GIT_COMMIT_DATE_NAME),
+            (self.commit_timestamp, GIT_COMMIT_TIMESTAMP_NAME),
+            (self.commit_timestamp_unix, GIT_COMMIT_TIMESTAMP_UNIX_NAME),
+            (self.describe.is_some(), GIT_DESCRIBE_NAME),
+            (self.sha.is_some(), GIT_SHA_NAME),
+            (self.dirty.is_some(), GIT_DIRTY_NAME),
+        ])
     }
 }
 

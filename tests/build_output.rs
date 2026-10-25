@@ -1,7 +1,10 @@
+mod test_util;
+
 #[cfg(feature = "build")]
 mod test_build {
     use std::sync::LazyLock;
 
+    use crate::test_util::assert_overrides_watched;
     use regex::Regex;
     use serial_test::serial;
     use smolgen::CustomInsGen;
@@ -50,6 +53,8 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_BUILD_DATE
+cargo:rerun-if-env-changed=VERGEN_BUILD_TIMESTAMP
 ";
 
     const IDEM_OUTPUT_CUSTOM_BUILDRS: &str = r"cargo:rustc-env=VERGEN_BUILD_DATE=VERGEN_IDEMPOTENT_OUTPUT
@@ -60,6 +65,8 @@ cargo:rerun-if-changed=a/custom_build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_BUILD_DATE
+cargo:rerun-if-env-changed=VERGEN_BUILD_TIMESTAMP
 ";
 
     const SOURCE_DATE_EPOCH_IDEM_OUTPUT: &str = r"cargo:rustc-env=VERGEN_BUILD_DATE=2022-12-23
@@ -68,6 +75,8 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_BUILD_DATE
+cargo:rerun-if-env-changed=VERGEN_BUILD_TIMESTAMP
 ";
 
     const QUIET_IDEM_OUTPUT: &str = r"cargo:rustc-env=VERGEN_BUILD_DATE=VERGEN_IDEMPOTENT_OUTPUT
@@ -76,6 +85,8 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_BUILD_DATE
+cargo:rerun-if-env-changed=VERGEN_BUILD_TIMESTAMP
 ";
 
     #[test]
@@ -255,6 +266,18 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
             }();
             assert!(result.is_ok());
         });
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn build_overrides_watched() -> Result<()> {
+        let mut stdout_buf = vec![];
+        let build = Build::all_build();
+        Emitter::default()
+            .add_instructions(&build)?
+            .emit_to(&mut stdout_buf)?;
+        assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
         Ok(())
     }
 }

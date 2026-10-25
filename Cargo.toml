@@ -1,6 +1,6 @@
 [package]
 name = "smolgen"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jason Ozias <jason.g.ozias@gmail.com>", "Alloy Contributors"]
 categories = ["development-tools", "development-tools::build-utils"]
 description = "Generate 'cargo:rustc-env' instructions via 'build.rs' for use in your code via the 'env!' macro"

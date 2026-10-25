@@ -85,3 +85,26 @@ where
     in_kvs.extend_from_slice(&DEFAULT_KVS);
     with_vars(in_kvs, closure)
 }
+
+/// Assert the `VERGEN_*` values in `output` and the `VERGEN_*` override variables watched
+/// with `cargo:rerun-if-env-changed` are the same set.
+///
+/// # Panics
+/// * When a value is emitted without its override being watched, or the reverse
+///
+pub fn assert_overrides_watched(output: &str) {
+    let names = |prefix: &str| -> Vec<&str> {
+        let mut names: Vec<_> = output
+            .lines()
+            .filter_map(|line| line.strip_prefix(prefix))
+            .filter_map(|line| line.split('=').next())
+            .filter(|name| name.starts_with("VERGEN_"))
+            .filter(|name| !matches!(*name, "VERGEN_IDEMPOTENT" | "VERGEN_DEFAULT_ON_ERROR"))
+            .collect();
+        names.sort_unstable();
+        names
+    };
+    let emitted = names("cargo:rustc-env=");
+    assert!(!emitted.is_empty(), "nothing emitted in:\n{output}");
+    assert_eq!(emitted, names("cargo:rerun-if-env-changed="), "{output}");
+}
