@@ -3,6 +3,7 @@
 mod test_util;
 
 mod test_git_git2 {
+    use std::path::Path;
     use std::sync::LazyLock;
 
     use regex::Regex;
@@ -12,7 +13,7 @@ mod test_git_git2 {
     use std::env::temp_dir;
     use temp_env::with_var;
 
-    use crate::test_util::TestRepos;
+    use crate::test_util::{TestRepos, assert_overrides_watched};
 
     static GIT_BRANCH_RE_STR: LazyLock<&'static str> =
         LazyLock::new(|| r"cargo:rustc-env=VERGEN_GIT_BRANCH=.*");
@@ -363,6 +364,69 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
         let mut gitcl = Gitcl::all().describe(true, false, None).sha(true).build();
         let _ = gitcl.at_path(repo.path());
         assert!(Emitter::default().add_instructions(&gitcl)?.emit().is_ok());
+        Ok(())
+    }
+
+    fn rerun_paths(path: &Path, rerun_on_head_change: bool) -> Result<Vec<String>> {
+        let mut gitcl = Gitcl::all()
+            .rerun_on_head_change(rerun_on_head_change)
+            .build();
+        let _ = gitcl.at_path(path.to_path_buf());
+        let mut stdout_buf = vec![];
+        let _ = Emitter::default()
+            .add_instructions(&gitcl)?
+            .emit_to(&mut stdout_buf)?;
+        Ok(String::from_utf8_lossy(&stdout_buf)
+            .lines()
+            .filter_map(|line| line.strip_prefix("cargo:rerun-if-changed="))
+            .map(str::to_string)
+            .collect())
+    }
+
+    #[test]
+    #[serial]
+    fn git_rerun_on_head_change() -> Result<()> {
+        let repo = TestRepos::new(true, false, false)?;
+
+        let tracked = rerun_paths(&repo.path(), true)?;
+        assert_eq!(tracked.len(), 3);
+        assert!(Path::new(&tracked[0]).ends_with(".git/HEAD"));
+        assert!(Path::new(&tracked[1]).starts_with(repo.path().join(".git/refs/heads")));
+        assert_eq!(tracked[2], "build.rs");
+
+        assert_eq!(rerun_paths(&repo.path(), false)?, ["build.rs"]);
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn git_rerun_in_linked_worktree() -> Result<()> {
+        let repo = TestRepos::new(false, false, false)?;
+        let worktree = repo.add_worktree("wt-branch")?;
+        let name = worktree.file_name().unwrap().to_string_lossy();
+
+        let tracked = rerun_paths(&worktree, true)?;
+        assert_eq!(tracked.len(), 3);
+        // HEAD is per worktree, the branch ref lives in the common git dir.
+        assert!(Path::new(&tracked[0]).ends_with(format!(".git/worktrees/{name}/HEAD")));
+        assert!(Path::new(&tracked[1]).ends_with(".git/refs/heads/wt-branch"));
+        assert_eq!(tracked[2], "build.rs");
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn git_rerun_with_packed_refs() -> Result<()> {
+        let repo = TestRepos::new(false, false, false)?;
+        repo.git(&["pack-refs", "--all"])?;
+
+        let tracked = rerun_paths(&repo.path(), true)?;
+        assert_eq!(tracked.len(), 4);
+        assert!(Path::new(&tracked[0]).ends_with(".git/HEAD"));
+        // A commit creates a loose ref again, which only the directory notices.
+        assert!(Path::new(&tracked[1]).ends_with(".git/packed-refs"));
+        assert!(Path::new(&tracked[2]).ends_with(".git/refs/heads"));
+        assert_eq!(tracked[3], "build.rs");
         Ok(())
     }
 
@@ -820,6 +884,20 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH"
         assert!(!failed);
         assert!(repo_exists().is_ok());
         assert!(GIT_REGEX_INST.is_match(&output));
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn git_overrides_watched() -> Result<()> {
+        let repo = TestRepos::new(false, false, false)?;
+        let mut gitcl = Gitcl::all_git();
+        let _ = gitcl.at_path(repo.path());
+        let mut stdout_buf = vec![];
+        Emitter::default()
+            .add_instructions(&gitcl)?
+            .emit_to(&mut stdout_buf)?;
+        assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
         Ok(())
     }
 }

@@ -9,6 +9,7 @@
 #[cfg(feature = "cargo_metadata")]
 #[cfg(feature = "cargo_metadata")]
 use crate::constants::CARGO_DEPENDENCIES;
+use crate::utils::enabled_env_names;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -522,6 +523,17 @@ impl AddEntries for Cargo {
             self.add_default_dependencies(config, cargo_rustc_env_map, cargo_warning);
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.debug, CARGO_DEBUG),
+            (self.features, CARGO_FEATURES),
+            (self.opt_level, CARGO_OPT_LEVEL),
+            (self.target_triple, CARGO_TARGET_TRIPLE),
+            #[cfg(feature = "cargo_metadata")]
+            (self.dependencies, CARGO_DEPENDENCIES),
+        ])
     }
 }
 

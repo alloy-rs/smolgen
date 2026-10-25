@@ -14,4 +14,4 @@ mod repo;
 mod utils;
 
 pub use self::repo::{RUNNER_TEMP_ENV, TEST_MTIME, TestRepos};
-pub use self::utils::{with_cargo_vars, with_cargo_vars_ext};
+pub use self::utils::{assert_overrides_watched, with_cargo_vars, with_cargo_vars_ext};

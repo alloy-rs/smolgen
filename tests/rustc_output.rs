@@ -1,7 +1,10 @@
+mod test_util;
+
 #[cfg(feature = "rustc")]
 mod test_rustc {
     use std::sync::LazyLock;
 
+    use crate::test_util::assert_overrides_watched;
     use regex::Regex;
     use smolgen::Result;
     use smolgen::{Emitter, Rustc};
@@ -54,6 +57,17 @@ mod test_rustc {
             .emit_to(&mut stdout_buf)?;
         let output = String::from_utf8_lossy(&stdout_buf);
         assert!(RUSTC_REGEX.is_match(&output));
+        Ok(())
+    }
+
+    #[test]
+    fn rustc_overrides_watched() -> Result<()> {
+        let mut stdout_buf = vec![];
+        let rustc = Rustc::all_rustc();
+        Emitter::default()
+            .add_instructions(&rustc)?
+            .emit_to(&mut stdout_buf)?;
+        assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
         Ok(())
     }
 }

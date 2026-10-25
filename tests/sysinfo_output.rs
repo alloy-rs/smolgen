@@ -1,7 +1,10 @@
+mod test_util;
+
 #[cfg(feature = "si")]
 mod test_sysinfo {
     use std::sync::LazyLock;
 
+    use crate::test_util::assert_overrides_watched;
     use regex::Regex;
     use serial_test::serial;
     use smolgen::Result;
@@ -54,6 +57,15 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_BRAND
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_CORE_COUNT
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_FREQUENCY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_VENDOR
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_OS_VERSION
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_TOTAL_MEMORY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_USER
 ";
 
     const IDEM_QUITE_OUTPUT: &str = r"cargo:rustc-env=VERGEN_SYSINFO_NAME=VERGEN_IDEMPOTENT_OUTPUT
@@ -69,6 +81,15 @@ cargo:rerun-if-changed=build.rs
 cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
 cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
 cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_BRAND
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_CORE_COUNT
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_FREQUENCY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_CPU_VENDOR
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_NAME
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_OS_VERSION
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_TOTAL_MEMORY
+cargo:rerun-if-env-changed=VERGEN_SYSINFO_USER
 ";
 
     #[test]
@@ -110,6 +131,18 @@ cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
             .emit_to(&mut stdout_buf)?;
         let output = String::from_utf8_lossy(&stdout_buf);
         assert_eq!(IDEM_QUITE_OUTPUT, output);
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn sysinfo_overrides_watched() -> Result<()> {
+        let mut stdout_buf = vec![];
+        let sysinfo = Sysinfo::all_sysinfo();
+        Emitter::default()
+            .add_instructions(&sysinfo)?
+            .emit_to(&mut stdout_buf)?;
+        assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
         Ok(())
     }
 }

@@ -9,7 +9,7 @@
 use crate::Result;
 use crate::{AddCustomEntries, AddEntries, CargoRustcEnvMap, DefaultConfig};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     env,
     io::{self, Write},
 };
@@ -30,6 +30,8 @@ pub struct Emitter {
     cargo_rustc_env_map_custom: BTreeMap<String, String>,
     #[doc(hidden)]
     cargo_rerun_if_changed: Vec<String>,
+    #[doc(hidden)]
+    cargo_rerun_if_env_changed: BTreeSet<&'static str>,
     #[doc(hidden)]
     cargo_warning: Vec<String>,
 }
@@ -74,6 +76,7 @@ impl Emitter {
             cargo_rustc_env_map: CargoRustcEnvMap::default(),
             cargo_rustc_env_map_custom: BTreeMap::default(),
             cargo_rerun_if_changed: Vec::default(),
+            cargo_rerun_if_env_changed: BTreeSet::default(),
             cargo_warning: Vec::default(),
         }
     }
@@ -272,6 +275,8 @@ impl Emitter {
                     &mut self.cargo_warning,
                 )
             })?;
+        self.cargo_rerun_if_env_changed
+            .extend(entries.override_env_names());
         Ok(self)
     }
 
@@ -360,13 +365,20 @@ impl Emitter {
         }
 
         // Emit the 'cargo:rerun-if-changed' instructions
-        if !self.cargo_rustc_env_map.is_empty() || !self.cargo_warning.is_empty() {
+        if !self.cargo_rustc_env_map.is_empty()
+            || !self.cargo_rustc_env_map_custom.is_empty()
+            || !self.cargo_warning.is_empty()
+            || !self.cargo_rerun_if_changed.is_empty()
+        {
             let buildrs = self.custom_buildrs.unwrap_or("build.rs");
             let sanitized_output = Self::filter_newlines(buildrs);
             writeln!(stdout, "cargo:rerun-if-changed={sanitized_output}")?;
             writeln!(stdout, "cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT")?;
             writeln!(stdout, "cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR")?;
             writeln!(stdout, "cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH")?;
+            for name in &self.cargo_rerun_if_env_changed {
+                writeln!(stdout, "cargo:rerun-if-env-changed={name}")?;
+            }
         }
         Ok(())
     }
@@ -379,6 +391,7 @@ impl Emitter {
     ///
     /// - Will emit [`cargo:rustc-env=VAR=VALUE`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#cargorustc-envvarvalue) for each feature you have enabled.
     /// - Will emit [`cargo:rerun-if-changed=PATH`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rerun-if-changed) if the git feature is enabled.  This is done to ensure any git variables are regenerated when commits are made.
+    /// - Will emit [`cargo:rerun-if-env-changed=NAME`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rerun-if-env-changed) for the `VERGEN_*` variable that overrides each instruction you have enabled, so changing an override reruns the build script.
     /// - Can emit [`cargo:warning`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#cargo-warning) outputs if the
     ///   [`fail_on_error`](Self::fail_on_error) feature is not enabled and the requested variable is defaulted through error or
     ///   the [`idempotent`](Self::idempotent) flag.
@@ -451,6 +464,7 @@ impl Emitter {
     ///
     /// - Will emit [`cargo:rustc-env=VAR=VALUE`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#cargorustc-envvarvalue) for each feature you have enabled.
     /// - Will emit [`cargo:rerun-if-changed=PATH`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rerun-if-changed) if the git feature is enabled.  This is done to ensure any git variables are regenerated when commits are made.
+    /// - Will emit [`cargo:rerun-if-env-changed=NAME`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rerun-if-env-changed) for the `VERGEN_*` variable that overrides each instruction you have enabled, so changing an override reruns the build script.
     /// - Can emit [`cargo:warning`](https://doc.rust-lang.org/cargo/reference/build-scripts.html#cargo-warning) outputs if the
     ///   [`fail_on_error`](Self::fail_on_error) feature is not enabled and the requested variable is defaulted through error or
     ///   the [`idempotent`](Self::idempotent) flag.
@@ -552,6 +566,68 @@ pub(crate) mod test {
     #[serial]
     fn default_on_error_emit_is_ok() {
         assert!(Emitter::new().default_on_error().emit().is_ok());
+    }
+
+    const RERUN_LINES: &str = "cargo:rerun-if-changed=build.rs
+cargo:rerun-if-env-changed=VERGEN_IDEMPOTENT
+cargo:rerun-if-env-changed=VERGEN_DEFAULT_ON_ERROR
+cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH
+";
+
+    #[test]
+    #[serial]
+    fn custom_instructions_only_emit_rerun_lines() -> Result<()> {
+        use crate::entries::test_gen::CustomInsGen;
+        let mut stdout_buf = vec![];
+        _ = Emitter::new()
+            .add_custom_instructions(&CustomInsGen::default())?
+            .emit_to(&mut stdout_buf)?;
+        let output = String::from_utf8_lossy(&stdout_buf);
+        assert_eq!(output, format!("cargo:rustc-env=test=value\n{RERUN_LINES}"));
+        Ok(())
+    }
+
+    #[test]
+    #[serial]
+    fn rerun_if_changed_only_emits_rerun_lines() -> Result<()> {
+        use crate::{AddCustomEntries, CargoRerunIfChanged, CargoWarning, DefaultConfig};
+        use std::collections::BTreeMap;
+
+        struct RerunOnly;
+
+        impl AddCustomEntries<&str, &str> for RerunOnly {
+            fn add_calculated_entries(
+                &self,
+                _idempotent: bool,
+                _cargo_rustc_env_map: &mut BTreeMap<&str, &str>,
+                cargo_rerun_if_changed: &mut CargoRerunIfChanged,
+                _cargo_warning: &mut CargoWarning,
+            ) -> Result<()> {
+                cargo_rerun_if_changed.push("data.txt".to_string());
+                Ok(())
+            }
+
+            fn add_default_entries(
+                &self,
+                _config: &DefaultConfig,
+                _cargo_rustc_env_map: &mut BTreeMap<&str, &str>,
+                _cargo_rerun_if_changed: &mut CargoRerunIfChanged,
+                _cargo_warning: &mut CargoWarning,
+            ) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        let mut stdout_buf = vec![];
+        _ = Emitter::new()
+            .add_custom_instructions(&RerunOnly)?
+            .emit_to(&mut stdout_buf)?;
+        let output = String::from_utf8_lossy(&stdout_buf);
+        assert_eq!(
+            output,
+            format!("cargo:rerun-if-changed=data.txt\n{RERUN_LINES}")
+        );
+        Ok(())
     }
 
     #[test]

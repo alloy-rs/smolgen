@@ -87,6 +87,14 @@ pub trait Add {
         cargo_rerun_if_changed: &mut CargoRerunIfChanged,
         cargo_warning: &mut CargoWarning,
     ) -> Result<()>;
+
+    /// The names of the environment variables that override the enabled instructions.
+    ///
+    /// The emitter writes a `cargo:rerun-if-env-changed=NAME` instruction for each of them, so
+    /// changing an override reruns the build script.
+    fn override_env_names(&self) -> Vec<&'static str> {
+        Vec::new()
+    }
 }
 
 /// This trait should be implemented to allow the `vergen` emitter to properly emit your custom instructions.

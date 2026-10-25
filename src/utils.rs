@@ -1,5 +1,10 @@
 use crate::{CargoRustcEnvMap, CargoWarning, VergenKey, constants::VERGEN_IDEMPOTENT_DEFAULT};
 use std::env;
+#[cfg(any(feature = "gitcl", feature = "git2", feature = "gix"))]
+use {
+    crate::CargoRerunIfChanged,
+    std::path::{Component, Path, PathBuf},
+};
 
 /// Add a [`VergenKey`] entry as a default string into the [`CargoRustcEnvMap`].
 /// The value is either from an environment variable override or [`crate::constants::VERGEN_IDEMPOTENT_DEFAULT`]
@@ -83,6 +88,69 @@ pub fn count_idempotent(map: &CargoRustcEnvMap) -> usize {
     map.values()
         .filter(|x| *x == VERGEN_IDEMPOTENT_DEFAULT)
         .count()
+}
+
+/// The names of the override environment variables of the enabled instructions.
+#[cfg(any(
+    feature = "build",
+    feature = "cargo",
+    feature = "gitcl",
+    feature = "git2",
+    feature = "gix",
+    feature = "rustc",
+    feature = "si"
+))]
+pub(crate) fn enabled_env_names(instructions: &[(bool, &'static str)]) -> Vec<&'static str> {
+    instructions
+        .iter()
+        .filter_map(|&(enabled, name)| enabled.then_some(name))
+        .collect()
+}
+
+/// Add the paths cargo should watch to notice a new commit: `HEAD` (in the worktree's own git
+/// dir) and the branch `reference` (in the common git dir, shared by linked worktrees).
+///
+/// A packed reference has no loose file.  A commit then writes a new loose file, so watch
+/// `packed-refs` and the nearest existing parent directory of the reference instead.
+#[cfg(any(feature = "gitcl", feature = "git2", feature = "gix"))]
+pub(crate) fn add_rerun_if_changed_paths(
+    cargo_rerun_if_changed: &mut CargoRerunIfChanged,
+    head: &Path,
+    reference: Option<&Path>,
+    packed_refs: &Path,
+) {
+    let mut add =
+        |path: &Path| cargo_rerun_if_changed.push(without_parent_dirs(path).display().to_string());
+    if head.exists() {
+        add(head);
+    }
+    if let Some(reference) = reference {
+        if reference.exists() {
+            add(reference);
+        } else {
+            if packed_refs.exists() {
+                add(packed_refs);
+            }
+            if let Some(dir) = reference.ancestors().skip(1).find(|dir| dir.is_dir()) {
+                add(dir);
+            }
+        }
+    }
+}
+
+/// Resolve `..` components lexically, e.g. gix reports the common dir of a linked worktree as
+/// `.git/worktrees/<name>/../..`.
+#[cfg(any(feature = "gitcl", feature = "git2", feature = "gix"))]
+fn without_parent_dirs(path: &Path) -> PathBuf {
+    let mut clean = PathBuf::new();
+    for component in path.components() {
+        if component == Component::ParentDir && clean.file_name().is_some() {
+            let _ = clean.pop();
+        } else {
+            clean.push(component);
+        }
+    }
+    clean
 }
 
 /// Read the git SHA and dirty flag from a `.cargo_vcs_info.json` file at

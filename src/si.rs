@@ -6,6 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+use crate::utils::enabled_env_names;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -594,6 +595,20 @@ impl AddEntries for Sysinfo {
         // currently add_map_entries can't error for sysinfo
         // so this will never be used.
         Ok(())
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.name, SYSINFO_NAME),
+            (self.os_version, SYSINFO_OS_VERSION),
+            (self.user, SYSINFO_USER),
+            (self.memory, SYSINFO_MEMORY),
+            (self.cpu_vendor, SYSINFO_CPU_VENDOR),
+            (self.cpu_core_count, SYSINFO_CPU_CORE_COUNT),
+            (self.cpu_name, SYSINFO_CPU_NAME),
+            (self.cpu_brand, SYSINFO_CPU_BRAND),
+            (self.cpu_frequency, SYSINFO_CPU_FREQUENCY),
+        ])
     }
 }
 

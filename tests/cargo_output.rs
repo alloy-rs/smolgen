@@ -4,7 +4,7 @@ mod test_util;
 mod test_cargo {
     use std::sync::LazyLock;
 
-    use crate::test_util::with_cargo_vars;
+    use crate::test_util::{assert_overrides_watched, with_cargo_vars};
     #[cfg(feature = "cargo_metadata")]
     use cargo_metadata::DependencyKind;
     use regex::Regex;
@@ -145,8 +145,9 @@ mod test_cargo {
                 .emit_to(&mut stdout_buf)?;
             let output = String::from_utf8_lossy(&stdout_buf);
             assert!(CARGO_REGEX_NO_DEP.is_match(&output));
-            // `smolgen` has no build dependencies.
-            assert!(!output.contains("VERGEN_CARGO_DEPENDENCIES"));
+            // `smolgen` has no build dependencies, but the override is still checked.
+            assert!(!output.contains("cargo:rustc-env=VERGEN_CARGO_DEPENDENCIES"));
+            assert!(output.contains("cargo:rerun-if-env-changed=VERGEN_CARGO_DEPENDENCIES"));
             Ok(())
         });
         assert!(result.is_ok());
@@ -168,6 +169,21 @@ mod test_cargo {
             let output = String::from_utf8_lossy(&stdout_buf);
             assert!(CARGO_REGEX.is_match(&output));
             assert!(CARGO_REGEX_DK.is_match(&output));
+            Ok(())
+        });
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn cargo_all_overrides_watched() {
+        let result = with_cargo_vars(|| {
+            let mut stdout_buf = vec![];
+            let cargo = Cargo::all_cargo_builder().build();
+            Emitter::default()
+                .add_instructions(&cargo)?
+                .emit_to(&mut stdout_buf)?;
+            assert_overrides_watched(&String::from_utf8_lossy(&stdout_buf));
             Ok(())
         });
         assert!(result.is_ok());

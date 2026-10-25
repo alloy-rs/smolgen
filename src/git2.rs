@@ -15,16 +15,14 @@ use crate::{
         GIT_COMMIT_TIMESTAMP_UNIX_NAME, GIT_DESCRIBE_NAME, GIT_DIRTY_NAME, GIT_SHA_NAME,
     },
     datetime::DateTime,
+    utils::{add_rerun_if_changed_paths, enabled_env_names},
 };
 use crate::{Error, Result};
 use git2_rs::{
     BranchType, Commit, DescribeFormatOptions, DescribeOptions, Reference, Repository,
     StatusOptions,
 };
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::{env, path::PathBuf};
 #[cfg(feature = "allow_remote")]
 use {
     git2_rs::{FetchOptions, build::RepoBuilder},
@@ -107,6 +105,7 @@ pub struct Git2 {
     sha: Option<Sha>,
     dirty: Option<Dirty>,
     use_local: bool,
+    rerun_on_head_change: bool,
     #[cfg(test)]
     fail: bool,
 }
@@ -137,6 +136,7 @@ impl Default for Git2 {
             sha: None,
             dirty: None,
             use_local: false,
+            rerun_on_head_change: true,
             #[cfg(test)]
             fail: false,
         }
@@ -215,6 +215,19 @@ builder! {
         commit_timestamp_unix: bool,
         /// Enable local offset date/timestamp output
         use_local: bool,
+        /// Emit `cargo:rerun-if-changed` for the git directory's `HEAD` and the ref it
+        /// points to.  Defaults to `true`, so cargo reruns the build script whenever a
+        /// commit, checkout, or rebase moves `HEAD`.
+        ///
+        /// Set this to `false` to skip those two paths.  The build script then reruns only
+        /// when `build.rs`, a watched environment variable, or a path you register yourself
+        /// changes, so the emitted `VERGEN_GIT_*` values reflect the last time the build
+        /// script ran, not necessarily the current commit.  This avoids rebuilding the crate
+        /// and its dependents on every commit during development, for example
+        /// `.rerun_on_head_change(std::env::var("PROFILE")? != "debug")`.
+        ///
+        /// The `build.rs` and `rerun-if-env-changed` instructions are unaffected.
+        rerun_on_head_change: bool,
         #[cfg(test)]
         /// Fail
         fail: bool,
@@ -554,11 +567,10 @@ impl Git2 {
         };
         let repo = self.get_repository(&repo_dir, cargo_warning)?;
         let ref_head = repo.find_reference("HEAD")?;
-        let git_path = repo.path().to_path_buf();
         let commit = ref_head.peel_to_commit()?;
 
-        if !idempotent && self.any() {
-            Self::add_rerun_if_changed(&ref_head, &git_path, cargo_rerun_if_changed);
+        if !idempotent && self.any() && self.rerun_on_head_change {
+            Self::add_rerun_if_changed(&ref_head, &repo, cargo_rerun_if_changed);
         }
 
         if self.branch {
@@ -735,28 +747,20 @@ impl Git2 {
 
     fn add_rerun_if_changed(
         ref_head: &Reference<'_>,
-        git_path: &Path,
+        repo: &Repository,
         cargo_rerun_if_changed: &mut CargoRerunIfChanged,
     ) {
-        // Setup the head path
-        let mut head_path = git_path.to_path_buf();
-        head_path.push("HEAD");
-
-        // Check whether the path exists in the filesystem before emitting it
-        if head_path.exists() {
-            cargo_rerun_if_changed.push(format!("{}", head_path.display()));
-        }
-
-        if let Ok(resolved) = ref_head.resolve()
-            && let Ok(name) = resolved.name()
-        {
-            let ref_path = git_path.to_path_buf();
-            let path = ref_path.join(name);
-            // Check whether the path exists in the filesystem before emitting it
-            if path.exists() {
-                cargo_rerun_if_changed.push(format!("{}", path.display()));
-            }
-        }
+        let common_dir = repo.commondir();
+        let reference = ref_head
+            .resolve()
+            .ok()
+            .and_then(|resolved| resolved.name().ok().map(|name| common_dir.join(name)));
+        add_rerun_if_changed_paths(
+            cargo_rerun_if_changed,
+            &repo.path().join("HEAD"),
+            reference.as_deref(),
+            &common_dir.join("packed-refs"),
+        );
     }
 
     fn add_branch_name(
@@ -1118,6 +1122,22 @@ impl AddEntries for Git2 {
             }
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.branch, GIT_BRANCH_NAME),
+            (self.commit_author_email, GIT_COMMIT_AUTHOR_EMAIL),
+            (self.commit_author_name, GIT_COMMIT_AUTHOR_NAME),
+            (self.commit_count, GIT_COMMIT_COUNT),
+            (self.commit_message, GIT_COMMIT_MESSAGE),
+            (self.commit_date, GIT_COMMIT_DATE_NAME),
+            (self.commit_timestamp, GIT_COMMIT_TIMESTAMP_NAME),
+            (self.commit_timestamp_unix, GIT_COMMIT_TIMESTAMP_UNIX_NAME),
+            (self.describe.is_some(), GIT_DESCRIBE_NAME),
+            (self.sha.is_some(), GIT_SHA_NAME),
+            (self.dirty.is_some(), GIT_DIRTY_NAME),
+        ])
     }
 }
 

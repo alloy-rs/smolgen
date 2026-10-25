@@ -6,6 +6,7 @@
 // option. All files in the project carrying such notice may not be copied,
 // modified, or distributed except according to those terms.
 
+use crate::utils::enabled_env_names;
 use crate::{
     AddEntries, CargoRerunIfChanged, CargoRustcEnvMap, CargoWarning, DefaultConfig, VergenKey,
     add_default_map_entry, add_map_entry,
@@ -535,6 +536,17 @@ impl AddEntries for Rustc {
 
             Ok(())
         }
+    }
+
+    fn override_env_names(&self) -> Vec<&'static str> {
+        enabled_env_names(&[
+            (self.channel, RUSTC_CHANNEL_NAME),
+            (self.commit_date, RUSTC_COMMIT_DATE),
+            (self.commit_hash, RUSTC_COMMIT_HASH),
+            (self.host_triple, RUSTC_HOST_TRIPLE_NAME),
+            (self.llvm_version, RUSTC_LLVM_VERSION),
+            (self.semver, RUSTC_SEMVER_NAME),
+        ])
     }
 }
 
