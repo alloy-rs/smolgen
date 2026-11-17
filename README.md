@@ -57,6 +57,9 @@ fn main() {
 - Errors that came from `time` and `rustc_version` have different messages.
 - The minimum supported Rust version is 1.88, except for features whose optional dependencies
   need a newer compiler (`si` needs 1.95 through `sysinfo`).
+- `VERGEN_IDEMPOTENT` and `VERGEN_DEFAULT_ON_ERROR` set to an empty string, `0` or `false` leave
+  the feature off. This lets a build turn idempotent output back off when Cargo's `[env]` config
+  turns it on, since `[env]` cannot unset a variable.
 - `use_local` works on Linux, Android, macOS, iOS, the BSDs and Windows.
 
 ## License

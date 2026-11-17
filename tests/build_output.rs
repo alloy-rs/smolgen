@@ -210,6 +210,33 @@ cargo:rerun-if-env-changed=VERGEN_BUILD_TIMESTAMP
 
     #[test]
     #[serial]
+    fn build_idempotent_env_flag() {
+        temp_env::with_var_unset("SOURCE_DATE_EPOCH", || {
+            for (value, idempotent) in [
+                (Some("1"), true),
+                (Some("true"), true),
+                (Some(""), false),
+                (Some("0"), false),
+                (Some("false"), false),
+                (Some("FALSE"), false),
+                (None, false),
+            ] {
+                temp_env::with_var("VERGEN_IDEMPOTENT", value, || {
+                    let mut stdout_buf = vec![];
+                    Emitter::new()
+                        .add_instructions(&Build::all_build())
+                        .unwrap()
+                        .emit_to(&mut stdout_buf)
+                        .unwrap();
+                    let output = String::from_utf8_lossy(&stdout_buf);
+                    assert_eq!(output == IDEM_OUTPUT, idempotent, "{value:?}");
+                });
+            }
+        });
+    }
+
+    #[test]
+    #[serial]
     fn build_all_idempotent_custom_buildrs_output() -> Result<()> {
         temp_env::with_var_unset("SOURCE_DATE_EPOCH", || {
             let result = || -> Result<()> {
