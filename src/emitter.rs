@@ -68,8 +68,8 @@ impl Emitter {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            idempotent: matches!(env::var("VERGEN_IDEMPOTENT"), Ok(_val)),
-            default_on_error: matches!(env::var("VERGEN_DEFAULT_ON_ERROR"), Ok(_val)),
+            idempotent: env_flag("VERGEN_IDEMPOTENT"),
+            default_on_error: env_flag("VERGEN_DEFAULT_ON_ERROR"),
             fail_on_error: false,
             quiet: false,
             custom_buildrs: None,
@@ -84,7 +84,9 @@ impl Emitter {
     /// Enable the `idempotent` feature
     ///
     /// **NOTE** - This feature can also be enabled via the `VERGEN_IDEMPOTENT`
-    /// environment variable.
+    /// environment variable. Setting it to an empty string, `0` or `false` leaves the
+    /// feature off, so it can be turned off where a parent environment, such as
+    /// Cargo's `[env]` config, turns it on.
     ///
     /// When this feature is enabled, certain vergen output (i.e. timestamps, sysinfo)
     /// will be set to an idempotent default.  This will allow systems that
@@ -135,7 +137,8 @@ impl Emitter {
     /// Enable the `default_on_error` feature
     ///
     /// **NOTE** - This feature can also be enabled via the `VERGEN_DEFAULT_ON_ERROR`
-    /// environment variable.
+    /// environment variable. Setting it to an empty string, `0` or `false` leaves the
+    /// feature off.
     ///
     /// By default, if `vergen` cannot generate a requested instruction (for example
     /// when you configure `VERGEN_GIT_*` instructions but build from a source tarball
@@ -518,6 +521,13 @@ impl Emitter {
     pub fn test_emit(&self) -> Emitter {
         self.clone()
     }
+}
+
+/// Returns whether the environment variable `name` is set to a value other than an
+/// empty string, `0` or `false` (case-insensitive).
+fn env_flag(name: &str) -> bool {
+    env::var_os(name)
+        .is_some_and(|v| !(v.is_empty() || v == "0" || v.eq_ignore_ascii_case("false")))
 }
 
 #[cfg(test)]
